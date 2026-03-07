@@ -215,6 +215,7 @@ dependencies = [
     { name = "datasets" },
     { name = "evaluate", extra = ["torch"] },
     { name = "google-genai" },
+    { name = "grapheme" },
     { name = "tglstemmer" },
     { name = "torch" },
     { name = "tqdm" },
@@ -234,6 +235,7 @@ requires-dist = [
     { name = "datasets", specifier = ">=4.5.0" },
     { name = "evaluate", extras = ["pytorch", "torch"], specifier = ">=0.4.6" },
     { name = "google-genai", specifier = ">=1.65.0" },
+    { name = "grapheme", specifier = ">=0.6.0" },
     { name = "tglstemmer", git = "https://github.com/andrianllmm/tagalog-stemmer.git?rev=main" },
     { name = "torch", specifier = ">=2.10.0" },
     { name = "tqdm", specifier = ">=4.67.3" },
@@ -707,6 +709,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/79/f9/cc1191c2540d6a4e2
 wheels = [
     { url = "https://files.pythonhosted.org/packages/68/3c/3fea4e7c91357c71782d7dcaad7a2577d636c90317e003386893c25bc62c/google_genai-1.65.0-py3-none-any.whl", hash = "sha256:68c025205856919bc03edb0155c11b4b833810b7ce17ad4b7a9eeba5158f6c44", size = 724429, upload-time = "2026-02-26T00:20:32.186Z" },
 ]
+
+[[package]]
+name = "grapheme"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/e7/bbaab0d2a33e07c8278910c1d0d8d4f3781293dfbc70b5c38197159046bf/grapheme-0.6.0.tar.gz", hash = "sha256:44c2b9f21bbe77cfb05835fec230bd435954275267fea1858013b102f8603cca", size = 207306, upload-time = "2020-03-07T17:13:55.492Z" }
 
 [[package]]
 name = "h11"

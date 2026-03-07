@@ -8,6 +8,7 @@ dependencies = [
     "datasets>=4.5.0",
     "evaluate[pytorch,torch]>=0.4.6",
     "google-genai>=1.65.0",
+    "grapheme>=0.6.0",
     "tglstemmer",
     "torch>=2.10.0",
     "tqdm>=4.67.3",
