@@ -10,6 +10,8 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
         # Add a learnable linear layer that maps from RoBERTa's hidden state to
         # ByT5's hidden state
         self.proj = nn.Linear(768, config.d_model)
+        nn.init.normal_(self.proj.weight, std=0.01)  # small init
+        nn.init.zeros_(self.proj.bias)
 
     @classmethod
     def from_pretrained(
@@ -30,9 +32,9 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
 
         return model
 
-    def _get_roberta_word_reprs(self, input_sentences, device):
+    def _get_roberta_word_reprs(self, sentence, device):
         encoded = self.roberta_tokenizer(
-            input_sentences, return_tensors="pt", padding=True, truncation=True
+            sentence, return_tensors="pt", padding=True, truncation=True
         ).to(device)
 
         with torch.no_grad():
@@ -45,7 +47,7 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
         input_ids=None,
         attention_mask=None,
         labels=None,
-        input_sentences=None,
+        sentence=None,
         encoder_outputs=None,
         **kwargs,
     ):
@@ -61,10 +63,8 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
             # We need to align the subword embeddings from RoBERTa with the
             # byte-level embeddings from ByT5, but I'm too lazy right now so we
             # just pad with zeroes so they're the same length...
-            if input_sentences is not None:
-                roberta_reprs = self._get_roberta_word_reprs(
-                    input_sentences, hidden.device
-                )
+            if sentence is not None:
+                roberta_reprs = self._get_roberta_word_reprs(sentence, hidden.device)
 
                 R, T = roberta_reprs.size(1), hidden.size(1)
 

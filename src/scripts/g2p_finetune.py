@@ -52,10 +52,23 @@ elif args.dataset == "combined":
 tokenizer = AutoTokenizer.from_pretrained(args.model_id)
 split_dataset = dataset_from_csv_list(dataset, tokenizer)
 
+
+class RoBERTaFusedDataCollator(DataCollatorForSeq2Seq):
+    def __call__(self, features, **kwargs):
+        sentences = [f.pop("sentence") for f in features]
+        # Remove any other non-tensor columns
+        for f in features:
+            f.pop("phoneme", None)
+            f.pop("index", None)
+        batch = super().__call__(features, **kwargs)
+        batch["sentence"] = sentences
+        return batch
+
+
 # Set up model and DataCollator
 # TODO: Add to CLI
 model = RoBERTaFusedByT5.from_pretrained(args.model_id)
-data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
+data_collator = RoBERTaFusedDataCollator(tokenizer=tokenizer, model=model)
 
 # Create a new directory for this run...
 run_id = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -89,6 +102,7 @@ training_args = Seq2SeqTrainingArguments(
     # --------------------------------------------
     load_best_model_at_end=True,
     metric_for_best_model="loss",
+    remove_unused_columns=False,
 )
 
 trainer = Seq2SeqTrainer(
