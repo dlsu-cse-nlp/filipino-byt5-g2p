@@ -13,6 +13,7 @@ import torch
 from tqdm import tqdm
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 
+from src.engines.roberta_fused_byt5 import RoBERTaFusedByT5
 from src.utils.dataset_from_csv import dataset_from_csv_list
 
 DEFAULT_MODEL_ID = "charsiu/g2p_multilingual_byT5_small_100"
@@ -48,7 +49,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained(args.model_id)
 
-model = T5ForConditionalGeneration.from_pretrained(args.checkpoint_path)
+# TODO: Add to CLI
+model = RoBERTaFusedByT5.from_pretrained(args.checkpoint_path)
 model.to(device)
 model.eval()
 

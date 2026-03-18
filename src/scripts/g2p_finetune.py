@@ -21,6 +21,7 @@ from transformers import (
     TrainerCallback,
 )
 
+from src.engines.roberta_fused_byt5 import RoBERTaFusedByT5
 from src.utils.dataset_from_csv import dataset_from_csv_list
 from src.utils.preview_callback import PreviewCallback
 
@@ -52,7 +53,8 @@ tokenizer = AutoTokenizer.from_pretrained(args.model_id)
 split_dataset = dataset_from_csv_list(dataset, tokenizer)
 
 # Set up model and DataCollator
-model = T5ForConditionalGeneration.from_pretrained(args.model_id)
+# TODO: Add to CLI
+model = RoBERTaFusedByT5.from_pretrained(args.model_id)
 data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
 
 # Create a new directory for this run...
@@ -67,8 +69,8 @@ training_args = Seq2SeqTrainingArguments(
     optim="adafactor",
     # --------------------------------------------
     # Effective batch size: 16 * 4 = 64
-    per_device_train_batch_size=16,
-    gradient_accumulation_steps=4,
+    per_device_train_batch_size=8,
+    gradient_accumulation_steps=8,
     # --------------------------------------------
     # Use standard ByT5 learning rates...
     learning_rate=3e-4,
