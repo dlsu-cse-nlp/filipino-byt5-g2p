@@ -21,6 +21,7 @@ from transformers import (
     TrainerCallback,
 )
 
+from src.engines.stress_weighted_seq2seq_trainer import StressWeightedSeq2SeqTrainer
 from src.utils.dataset_from_csv import dataset_from_csv_list
 from src.utils.preview_callback import PreviewCallback
 
@@ -35,6 +36,11 @@ parser.add_argument(
     "--dataset", default="tatoeba", choices=["tatoeba", "newsph-nli", "combined"]
 )
 parser.add_argument("--description", default="sample_finetune")
+parser.add_argument(
+    "--trainer",
+    choices=["Seq2SeqTrainer", "StressWeightedSeq2SeqTrainer"],
+    default="Seq2SeqTrainer",
+)
 args = parser.parse_args()
 
 # Set up dataset CSV paths
@@ -73,7 +79,7 @@ training_args = Seq2SeqTrainingArguments(
     # Use standard ByT5 learning rates...
     learning_rate=3e-4,
     lr_scheduler_type="constant_with_warmup",
-    warmup_steps=300,
+    warmup_steps=100 if args.dataset == "tatoeba" else 300,
     # --------------------------------------------
     num_train_epochs=10,  # TODO: Is 10 good?
     eval_strategy="epoch",
@@ -89,13 +95,28 @@ training_args = Seq2SeqTrainingArguments(
     metric_for_best_model="loss",
 )
 
-trainer = Seq2SeqTrainer(
-    model=model,
-    args=training_args,
-    train_dataset=split_dataset["train"],
-    eval_dataset=split_dataset["validation"],  # type: ignore
-    data_collator=data_collator,
-    callbacks=[PreviewCallback(split_dataset["validation"], data_collator, tokenizer)],
-)
+if args.trainer == "StressWeightedSeq2SeqTrainer":
+    trainer = StressWeightedSeq2SeqTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=split_dataset["train"],
+        eval_dataset=split_dataset["validation"],  # type: ignore
+        data_collator=data_collator,
+        callbacks=[
+            PreviewCallback(split_dataset["validation"], data_collator, tokenizer)
+        ],
+    )
+elif args.trainer == "Seq2SeqTrainer":
+    trainer = Seq2SeqTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=split_dataset["train"],
+        eval_dataset=split_dataset["validation"],  # type: ignore
+        data_collator=data_collator,
+        callbacks=[
+            PreviewCallback(split_dataset["validation"], data_collator, tokenizer)
+        ],
+    )
+
 
 trainer.train()

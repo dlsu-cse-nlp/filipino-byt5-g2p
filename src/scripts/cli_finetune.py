@@ -6,7 +6,7 @@ import questionary
 
 # Define the available datasets for finetuning
 DATASETS = ["tatoeba", "newsph-nli", "combined"]
-
+TRAINERS = ["Seq2SeqTrainer", "StressWeightedSeq2SeqTrainer"]
 
 # Prompt user to select a training set
 selected_dataset = questionary.select(
@@ -14,6 +14,15 @@ selected_dataset = questionary.select(
 ).ask()
 
 if not selected_dataset:
+    print("Cancelled by user.")
+    sys.exit(0)
+
+# Prompt user to select a model trainer
+selected_trainer = questionary.select(
+    "Select a model trainer:", choices=TRAINERS, use_indicator=True
+).ask()
+
+if not selected_trainer:
     print("Cancelled by user.")
     sys.exit(0)
 
@@ -33,6 +42,8 @@ cmd = [
     "src.scripts.g2p_finetune",
     "--dataset",
     selected_dataset,
+    "--trainer",
+    selected_trainer,
     "--description",
     description,
 ]
