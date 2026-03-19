@@ -23,6 +23,7 @@ from transformers import (
 
 from src.engines.roberta_fused_byt5 import RoBERTaFusedByT5
 from src.utils.dataset_from_csv import dataset_from_csv_list
+from src.utils.enable_fusion_callback import EnableFusionCallback
 from src.utils.preview_callback import PreviewCallback
 
 RANDOM_STATE = 765  # ナムコプロ最強
@@ -111,7 +112,10 @@ trainer = Seq2SeqTrainer(
     train_dataset=split_dataset["train"],
     eval_dataset=split_dataset["validation"],  # type: ignore
     data_collator=data_collator,
-    callbacks=[PreviewCallback(split_dataset["validation"], data_collator, tokenizer)],
+    callbacks=[
+        EnableFusionCallback,
+        PreviewCallback(split_dataset["validation"], data_collator, tokenizer),
+    ],
 )
 
 trainer.train()

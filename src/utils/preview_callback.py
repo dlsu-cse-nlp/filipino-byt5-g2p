@@ -14,7 +14,7 @@ class PreviewCallback(TrainerCallback):
         # Take 3 samples from the validation set
         samples = self.val_dataset.select(range(3))
 
-        keys_to_keep = ["input_ids", "attention_mask", "labels"]
+        keys_to_keep = ["input_ids", "attention_mask", "labels", "sentence"]
         batch_list = [
             {k: v for k, v in samples[i].items() if k in keys_to_keep}
             for i in range(len(samples))
@@ -25,6 +25,7 @@ class PreviewCallback(TrainerCallback):
         model_inputs = {
             "input_ids": inputs["input_ids"].to(args.device),
             "attention_mask": inputs["attention_mask"].to(args.device),
+            "sentence": inputs["sentence"],
         }
 
         generated_tokens = kwargs["model"].generate(**model_inputs, max_length=128)
