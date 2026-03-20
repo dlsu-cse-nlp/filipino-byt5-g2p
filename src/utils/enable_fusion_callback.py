@@ -8,4 +8,6 @@ class EnableFusionCallback(TrainerCallback):
     def on_epoch_end(self, args, state, control, **kwargs):
         if state.epoch == self.enable_at_epoch:
             kwargs["model"].fusion_enabled = True
-            print(f"[INFO] RoBERTa fusion enabled at epoch {state.epoch}")
+            for param in kwargs["model"].cross_attn.parameters():
+                param.requires_grad = True
+            print(f"[INFO] Cross-attention fusion enabled at epoch {state.epoch}")

@@ -91,7 +91,7 @@ training_args = Seq2SeqTrainingArguments(
     lr_scheduler_type="constant_with_warmup",
     warmup_steps=100 if args.dataset == "tatoeba" else 300,
     # --------------------------------------------
-    num_train_epochs=10,  # TODO: Is 10 good?
+    num_train_epochs=15,  # TODO: Is 10 good?
     eval_strategy="epoch",
     save_strategy="epoch",
     save_total_limit=1,

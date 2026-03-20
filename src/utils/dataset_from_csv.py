@@ -13,6 +13,19 @@ def preprocess_function(examples, tokenizer):
     )
 
 
+def is_within_max_length(item, tokenizer, max_length=128):
+    # Filter out digits
+    if any(c.isdigit() for c in item["sentence"]):
+        return False
+
+    # Filter out sentences that start with a lowercase letter
+    if item["sentence"][0].islower():
+        return False
+
+    inputs = tokenizer(item["sentence"], return_tensors="pt")
+    return inputs["input_ids"].shape[1] < max_length
+
+
 def dataset_from_csv(csv_path, tokenizer):
     dataset = load_dataset("csv", data_files=csv_path)["train"]
     tokenized_dataset = dataset.map(
@@ -22,6 +35,11 @@ def dataset_from_csv(csv_path, tokenizer):
     # Perform an 80%/10%/10% train-test-validation split
     train_test = tokenized_dataset.train_test_split(test_size=0.2, seed=RANDOM_STATE)
     val_test = train_test["test"].train_test_split(test_size=0.5, seed=RANDOM_STATE)
+
+    val_test["test"] = val_test["test"].filter(
+        lambda item: is_within_max_length(item, tokenizer),
+        load_from_cache_file=False,
+    )
 
     split_dataset = DatasetDict(
         {

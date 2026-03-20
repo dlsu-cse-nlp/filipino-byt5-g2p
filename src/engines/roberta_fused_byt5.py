@@ -26,80 +26,50 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
         dtype = next(model.parameters()).dtype
         device = next(model.parameters()).device
 
-        model.proj = nn.Linear(768, model.config.d_model).to(dtype=dtype, device=device)
-        nn.init.normal_(model.proj.weight, std=0.01)
-        nn.init.zeros_(model.proj.bias)
+        # Multi-head cross-attention
+        # Queries from ByT5, keys/values from RoBERTa
+        model.cross_attn = nn.MultiheadAttention(
+            embed_dim=model.config.d_model,
+            num_heads=8,
+            kdim=768,
+            vdim=768,
+            batch_first=True,
+        ).to(dtype=dtype, device=device)
+
+        # Small init on output projection to start near-zero
+        nn.init.normal_(model.cross_attn.out_proj.weight, std=0.01)
+        nn.init.zeros_(model.cross_attn.out_proj.bias)
 
         return model
 
-    def _fuse_roberta_into_bytes(self, sentences, hidden, device):
-        roberta_reprs = torch.zeros_like(hidden)  # (B, T, d_model)
-
-        # Tokenize on CPU first so word_ids() works, THEN move to device
+    def _fuse_via_cross_attention(self, sentences, hidden, device):
         encoded = self.roberta_tokenizer(
             sentences,
             return_tensors="pt",
             padding=True,
             truncation=True,
-            return_offsets_mapping=True,
         )
 
-        # Extract before moving to device (these are CPU-side metadata)
-        offset_mapping = encoded.pop("offset_mapping")  # (B, R, 2)
-        word_ids_per_batch = [
-            encoded.word_ids(batch_index=b) for b in range(len(sentences))
-        ]
+        # Invert attention_mask for MultiheadAttention
+        roberta_key_padding_mask = (encoded["attention_mask"] == 0).to(device)
 
         encoded = encoded.to(device)
 
         with torch.no_grad():
-            out = self.roberta(**encoded).last_hidden_state  # (B, R, 768)
+            roberta_out = self.roberta(
+                **encoded, output_hidden_states=True
+            ).hidden_states[
+                8
+            ]  # (B, R, 768)
 
-        for b, sentence in enumerate(sentences):
-            word_ids = word_ids_per_batch[b]
-            offsets = offset_mapping[b].tolist()
+        fused, _ = self.cross_attn(
+            query=hidden,  # (B, T, d_model)
+            key=roberta_out,  # (B, R, 768)
+            value=roberta_out,  # (B, R, 768)
+            key_padding_mask=roberta_key_padding_mask,  # (B, R)
+        )
 
-            valid_wids = [wid for wid in word_ids if wid is not None]
-            if not valid_wids:
-                continue
-            num_words = max(valid_wids) + 1
-
-            # Build per-word mean representations
-            word_reprs = []
-            for w in range(num_words):
-                token_indices = [i for i, wid in enumerate(word_ids) if wid == w]
-                if not token_indices:
-                    continue
-                word_reprs.append(out[b, token_indices].mean(dim=0))
-
-            if not word_reprs:
-                continue
-
-            word_reprs = self.proj(torch.stack(word_reprs))  # (num_words, d_model)
-
-            # Scatter word reprs into byte positions
-            T = hidden.size(1)
-            for w in range(len(word_reprs)):
-                token_indices = [i for i, wid in enumerate(word_ids) if wid == w]
-                if not token_indices:
-                    continue
-                char_start = offsets[token_indices[0]][0]
-                char_end = offsets[token_indices[-1]][1]
-
-                byte_start = len(sentence[:char_start].encode("utf-8"))
-                byte_end = len(sentence[:char_end].encode("utf-8"))
-
-                if byte_start >= T:
-                    continue
-                byte_end = min(byte_end, T)
-
-                span_len = byte_end - byte_start
-                if span_len > 0:
-                    roberta_reprs[b, byte_start:byte_end] = (
-                        word_reprs[w].unsqueeze(0).expand(span_len, -1)
-                    )
-
-        return hidden + roberta_reprs
+        return hidden + fused
 
     def forward(
         self,
@@ -117,12 +87,46 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
             hidden = encoder_outputs.last_hidden_state
 
             if sentence is not None and self.fusion_enabled:
-                hidden = self._fuse_roberta_into_bytes(sentence, hidden, hidden.device)
+                hidden = self._fuse_via_cross_attention(sentence, hidden, hidden.device)
                 encoder_outputs.last_hidden_state = hidden
 
         return super().forward(
             attention_mask=attention_mask,
             labels=labels,
             encoder_outputs=encoder_outputs,
+            **kwargs,
+        )
+
+    def generate(self, input_ids=None, attention_mask=None, **kwargs):
+        sentence = kwargs.pop("sentence", None)
+
+        if self.fusion_enabled and sentence is not None:
+            original_forward = self.encoder.forward
+
+            def fused_forward(*args, **encoder_kwargs):
+                outputs = original_forward(*args, **encoder_kwargs)
+                hidden = outputs.last_hidden_state
+                print(f"[DEBUG] fused_forward called, hidden shape: {hidden.shape}")
+                fused = self._fuse_via_cross_attention(sentence, hidden, hidden.device)
+                print(f"[DEBUG] fusion applied")
+                print(f"[DEBUG] fused norm: {fused.norm().item()}")
+                print(f"[DEBUG] hidden norm: {hidden.norm().item()}")
+                print(f"[DEBUG] diff norm: {(fused - hidden).norm().item()}")
+                print(f"[DEBUG] fused nan: {torch.isnan(fused).any()}")
+                outputs.last_hidden_state = fused
+                return outputs
+
+            self.encoder.forward = fused_forward
+            result = super().generate(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                **kwargs,
+            )
+            self.encoder.forward = original_forward
+            return result
+
+        return super().generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
             **kwargs,
         )

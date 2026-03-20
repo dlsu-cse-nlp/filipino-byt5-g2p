@@ -80,9 +80,41 @@ with torch.no_grad():
             continue
 
         inputs = tokenizer(item["sentence"], return_tensors="pt").to(device)
-        outputs = model.generate(**inputs, max_length=512)
+
+        # """
+        outputs = model.generate(
+            **inputs,
+            max_length=512,
+            repetition_penalty=1.3,
+            sentence=[item["sentence"] * 8],
+        )
         pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         pred_segs = ft.ipa_segs(pred_text)
+
+        """
+        encoder_outputs = model.encoder(**inputs)
+        hidden = encoder_outputs.last_hidden_state
+        fused = model._fuse_via_cross_attention(
+            [item["sentence"]], hidden, hidden.device
+        )
+        encoder_outputs.last_hidden_state = fused
+        outputs = model.generate(
+            input_ids=inputs["input_ids"],
+            attention_mask=inputs[
+                "attention_mask"
+            ],  # only pass attention_mask, not input_ids
+            encoder_outputs=encoder_outputs,
+            max_length=512,
+            repetition_penalty=1.3,
+        )
+
+        pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        pred_segs = ft.ipa_segs(pred_text)
+        # """
+
+        print(
+            f"Input: {item["sentence"]}\nTarget: {target_text}\nPred:   {pred_text}\n-----"
+        )
 
         # Calculate PER
         per_dist = dst.levenshtein_distance(pred_segs, target_segs)
@@ -103,6 +135,10 @@ with torch.no_grad():
 
         total_phonemes += len(target_segs)
         total_chars += len(target_text)
+
+        print(
+            f"Running PER: {total_per_dist / total_phonemes if total_phonemes > 0 else 0}"
+        )
 
 final_per = total_per_dist / total_phonemes if total_phonemes > 0 else 0
 final_pfer = total_pfer_dist / total_phonemes if total_phonemes > 0 else 0
