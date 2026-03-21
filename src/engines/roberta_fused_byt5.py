@@ -12,10 +12,14 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
         cls,
         pretrained_model_name_or_path,
         roberta_name="jcblaise/roberta-tagalog-base",
+        roberta_injection_layer=8,
+        encoder_injection_layer=8,
         **kwargs,
     ):
         model = super().from_pretrained(pretrained_model_name_or_path, **kwargs)
-        model.fusion_enabled = False
+        model.fusion_enabled = True
+        model.roberta_injection_layer = roberta_injection_layer
+        model.encoder_injection_layer = encoder_injection_layer
 
         model.roberta = AutoModel.from_pretrained(roberta_name)
         model.roberta_tokenizer = AutoTokenizer.from_pretrained(roberta_name)
@@ -42,7 +46,8 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
 
         return model
 
-    def _fuse_via_cross_attention(self, sentences, hidden, device):
+    def _get_roberta_hidden(self, sentences, device):
+        """Extract RoBERTa hidden states at the configured injection layer."""
         encoded = self.roberta_tokenizer(
             sentences,
             return_tensors="pt",
@@ -50,26 +55,48 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
             truncation=True,
         )
 
-        # Invert attention_mask for MultiheadAttention
         roberta_key_padding_mask = (encoded["attention_mask"] == 0).to(device)
-
         encoded = encoded.to(device)
 
         with torch.no_grad():
             roberta_out = self.roberta(
                 **encoded, output_hidden_states=True
             ).hidden_states[
-                8
+                self.roberta_injection_layer
             ]  # (B, R, 768)
 
-        fused, _ = self.cross_attn(
-            query=hidden,  # (B, T, d_model)
-            key=roberta_out,  # (B, R, 768)
-            value=roberta_out,  # (B, R, 768)
-            key_padding_mask=roberta_key_padding_mask,  # (B, R)
+        return roberta_out, roberta_key_padding_mask
+
+    def _install_fusion_hook(self, sentences, device):
+        """
+        Installs a forward hook on encoder block[encoder_injection_layer]
+        that injects cross-attention after that block runs, allowing
+        upper encoder layers to re-contextualize the fused representations.
+
+        Returns the hook handle — caller must call handle.remove() when done.
+        """
+        roberta_out, roberta_key_padding_mask = self._get_roberta_hidden(
+            sentences, device
         )
 
-        return hidden + fused
+        def hook(module, input, output):
+            # T5Block output is a tuple; first element is hidden states
+            hidden = output[0]
+            fused, attn_weights = self.cross_attn(
+                query=hidden,
+                key=roberta_out,
+                value=roberta_out,
+                key_padding_mask=roberta_key_padding_mask,
+            )
+            print(
+                f"attn_weights entropy: {-(attn_weights.clamp(min=1e-9) * attn_weights.clamp(min=1e-9).log()).sum(-1).mean()}"
+            )
+            return (hidden + fused,) + output[1:]
+
+        handle = self.encoder.block[self.encoder_injection_layer].register_forward_hook(
+            hook
+        )
+        return handle
 
     def forward(
         self,
@@ -81,14 +108,21 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
         **kwargs,
     ):
         if encoder_outputs is None:
-            encoder_outputs = self.encoder(
-                input_ids=input_ids, attention_mask=attention_mask
-            )
-            hidden = encoder_outputs.last_hidden_state
-
             if sentence is not None and self.fusion_enabled:
-                hidden = self._fuse_via_cross_attention(sentence, hidden, hidden.device)
-                encoder_outputs.last_hidden_state = hidden
+                device = (
+                    input_ids.device if input_ids is not None else attention_mask.device
+                )
+                handle = self._install_fusion_hook(sentence, device)
+                try:
+                    encoder_outputs = self.encoder(
+                        input_ids=input_ids, attention_mask=attention_mask
+                    )
+                finally:
+                    handle.remove()
+            else:
+                encoder_outputs = self.encoder(
+                    input_ids=input_ids, attention_mask=attention_mask
+                )
 
         return super().forward(
             attention_mask=attention_mask,
@@ -101,28 +135,18 @@ class RoBERTaFusedByT5(T5ForConditionalGeneration):
         sentence = kwargs.pop("sentence", None)
 
         if self.fusion_enabled and sentence is not None:
-            original_forward = self.encoder.forward
-
-            def fused_forward(*args, **encoder_kwargs):
-                outputs = original_forward(*args, **encoder_kwargs)
-                hidden = outputs.last_hidden_state
-                print(f"[DEBUG] fused_forward called, hidden shape: {hidden.shape}")
-                fused = self._fuse_via_cross_attention(sentence, hidden, hidden.device)
-                print(f"[DEBUG] fusion applied")
-                print(f"[DEBUG] fused norm: {fused.norm().item()}")
-                print(f"[DEBUG] hidden norm: {hidden.norm().item()}")
-                print(f"[DEBUG] diff norm: {(fused - hidden).norm().item()}")
-                print(f"[DEBUG] fused nan: {torch.isnan(fused).any()}")
-                outputs.last_hidden_state = fused
-                return outputs
-
-            self.encoder.forward = fused_forward
-            result = super().generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                **kwargs,
+            device = (
+                input_ids.device if input_ids is not None else attention_mask.device
             )
-            self.encoder.forward = original_forward
+            handle = self._install_fusion_hook(sentence, device)
+            try:
+                result = super().generate(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    **kwargs,
+                )
+            finally:
+                handle.remove()
             return result
 
         return super().generate(
