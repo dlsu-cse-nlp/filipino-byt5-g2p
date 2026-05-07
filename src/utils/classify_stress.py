@@ -129,8 +129,8 @@ def run_evaluation(pkl_path: str):
 
         for g, t, p in zip(grapheme_words, target_words, pred_words):
             # TODO: Can comment this out to include everything
-            # if g in NON_HOMOGRAPHS_SET:
-            #    continue
+            if g in NON_HOMOGRAPHS_SET:
+                continue
 
             tc = classify_stress(t)
             pc = classify_stress(p)

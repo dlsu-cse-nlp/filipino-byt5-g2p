@@ -1,10 +1,12 @@
-,Tatoeba,Tatoeba+Word,Tatoeba+Stress+Word,Tatoeba+NewsPH,Tatoeba+NewsPH+Word,Tatoeba+NewsPH+Stress,Tatoeba+NewsPH+Stress+Word,Tatoeba+NewsPH+Stress+Word (30\% prune),Tatoeba+NewsPH+Stress+Word (50\% prune)
-Tatoeba,,509.0,1823.0,806.5,752.0,1195.5,1055.0,847.0,1308.0
-Tatoeba+Word,,,1895.0,1601.0,1316.0,1144.0,945.0,1012.5,2044.5
-Tatoeba+Stress+Word,,,,1750.0,2058.0,947.0,857.5,1146.5,3657.0
-Tatoeba+NewsPH,,,,,292.5,669.0,556.0,645.5,1297.0
-Tatoeba+NewsPH+Word,,,,,,615.5,701.5,522.0,1206.0
-Tatoeba+NewsPH+Stress,,,,,,,405.0,673.5,1301.5
-Tatoeba+NewsPH+Stress+Word,,,,,,,,545.0,930.5
-Tatoeba+NewsPH+Stress+Word (30\% prune),,,,,,,,,483.0
-Tatoeba+NewsPH+Stress+Word (50\% prune),,,,,,,,,
+,(1) Tatoeba,(2) Tatoeba+Word,(3) Tatoeba+Stress+Word,(4) Tatoeba+NewsPH,(5) Tatoeba+NewsPH+Word,(6) Tatoeba+NewsPH+Stress,(7) Tatoeba+NewsPH+Stress+Word,(8) $\hookrightarrow$ 30\% prune ,(9) $\hookrightarrow$ 50\% prune ,(10) Base CharsiuG2P,(11) Epitran
+(1) Tatoeba,,1722.5,5118.0,4991.5,4470.5,3475.5,2813.5,3263.5,7011.0,0.0,400.5
+(2) Tatoeba+Word,,,5403.0,5620.0,5672.5,3457.5,2942.0,3831.0,6957.5,0.0,591.5
+(3) Tatoeba+Stress+Word,,,,3848.0,3691.0,1016.5,826.0,1878.5,2366.0,0.0,310.0
+(4) Tatoeba+NewsPH,,,,,1351.0,1939.0,1769.0,2063.5,3679.5,0.0,422.5
+(5) Tatoeba+NewsPH+Word,,,,,,1777.0,1767.5,1808.0,3316.5,0.0,412.0
+(6) Tatoeba+NewsPH+Stress,,,,,,,718.5,1223.0,2230.5,70.0,649.5
+(7) Tatoeba+NewsPH+Stress+Word,,,,,,,,885.5,1610.5,23.5,313.5
+(8) $\hookrightarrow$ 30\% prune ,,,,,,,,,1210.5,25.0,328.0
+(9) $\hookrightarrow$ 50\% prune ,,,,,,,,,,5433.0,12913.5
+(10) Base CharsiuG2P,,,,,,,,,,,4581.0
+(11) Epitran,,,,,,,,,,,

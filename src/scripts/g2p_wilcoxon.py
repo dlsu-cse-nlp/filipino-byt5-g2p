@@ -30,6 +30,8 @@ CHECKPOINTS = [
     "9670",
     "pruned_model30",
     "pruned_model50",
+    "base",
+    "epitran",
 ]
 METRICS = ["per", "cer", "pfer"]
 RESULTS_DIR = "results"
@@ -45,9 +47,7 @@ def load_pkl(path):
 
 def get_checkpoint_pkl(checkpoint):
     pattern = f"{RESULTS_DIR}/*.pkl"
-    matches = [
-        p for p in glob.glob(pattern) if (checkpoint in p and "tatoeba.pkl" in p)
-    ]
+    matches = [p for p in glob.glob(pattern) if (checkpoint in p and "manual.pkl" in p)]
     return matches[0]
 
 
@@ -83,26 +83,28 @@ def format_p_values(p):
     if pd.isna(p):
         return ""  # Keeps the diagonal clean
     if p < 0.001:
-        return f"< 0.001***"
+        return f"<.001***"
     if p < 0.01:
-        return f"{p:.4f}**"
+        return f"{p:.4f}**".replace("0.", ".", 1)
     if p < 0.05:
-        return f"{p:.4f}*"
+        return f"{p:.4f}*".replace("0.", ".", 1)
     if p < 0.10:
-        return f"{p:.4f}†"  # Highlighting the 0.0632 case
-    return f"{p:.4f}"
+        return f"{p:.4f}†".replace("0.", ".", 1)  # Highlighting the 0.0632 case
+    return f"{p:.4f}".replace("0.", ".", 1)
 
 
 new_names = [
-    "Tatoeba",
-    "Tatoeba+Word",
-    "Tatoeba+Stress+Word",
-    "Tatoeba+NewsPH",
-    "Tatoeba+NewsPH+Word",
-    "Tatoeba+NewsPH+Stress",
-    "Tatoeba+NewsPH+Stress+Word",
-    "Tatoeba+NewsPH+Stress+Word (30\% prune)",
-    "Tatoeba+NewsPH+Stress+Word (50\% prune)",
+    "(1) Tatoeba",
+    "(2) Tatoeba+Word",
+    "(3) Tatoeba+Stress+Word",
+    "(4) Tatoeba+NewsPH",
+    "(5) Tatoeba+NewsPH+Word",
+    "(6) Tatoeba+NewsPH+Stress",
+    "(7) Tatoeba+NewsPH+Stress+Word",
+    "(8) $\hookrightarrow$ 30\% prune ",
+    "(9) $\hookrightarrow$ 50\% prune ",
+    "(10) Base CharsiuG2P",
+    "(11) Epitran",
 ]
 
 summaries = []

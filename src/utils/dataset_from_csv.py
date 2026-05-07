@@ -1,8 +1,11 @@
+import panphon
 import torch
+from scipy import stats
 
 from datasets import DatasetDict, concatenate_datasets, load_dataset
 
 RANDOM_STATE = 765  # ナムコプロ最強
+ft = panphon.FeatureTable()
 
 
 def preprocess_function(examples, tokenizer):
@@ -43,9 +46,22 @@ def preprocess_dataset(dataset):
     lengths = [len(item["sentence"].encode("utf-8")) for item in dataset]
     avg = sum(lengths) / len(lengths)
     std = (sum((l - avg) ** 2 for l in lengths) / len(lengths)) ** 0.5
+
     print(
         f"Sentence lengths (bytes): min={min(lengths)}, max={max(lengths)}, avg={avg:.1f}, std={std:.1f}"
     )
+
+    if len(lengths) >= 8:
+        k2_stat, p_value = stats.normaltest(lengths)
+        # If p-value > 0.05, we fail to reject the null hypothesis (i.e. normal distribution)
+        is_normal = p_value > 0.05
+        normality_msg = f"Yes" if is_normal else f"No"
+        normality_msg += f" (p-value={p_value:.3e})"
+    else:
+        normality_msg = "Not enough data to test (n < 8)"
+
+    print(normality_msg)
+
     return dataset
 
 
@@ -111,4 +127,23 @@ def dataset_from_csv_list(csv_paths, tokenizer):
     for split_name, dataset_list in grouped_splits.items():
         concatenated_splits[split_name] = concatenate_datasets(dataset_list)
 
-    return DatasetDict(concatenated_splits)
+    concatenated_dict = DatasetDict(concatenated_splits)
+
+    print(
+        sorted(
+            set("".join(["".join(ds["phoneme"]) for ds in concatenated_dict.values()]))
+        )
+    )
+
+    print(
+        sorted(
+            set(
+                phoneme
+                for ds in concatenated_dict.values()
+                for text in ds["phoneme"]
+                for phoneme in ft.ipa_segs(text)
+            )
+        )
+    )
+
+    return concatenated_dict

@@ -49,6 +49,10 @@ if not selected_dataset:
     print("Cancelled by user.")
     sys.exit(0)
 
+umap = False
+if questionary.confirm("Get UMAP plot?", default=False).ask():
+    umap = True
+
 # NOTE: We run the Python script with uv!
 cmd = [
     "uv",
@@ -68,6 +72,9 @@ elif selected_checkpoint == "Epitran":
     cmd.append("--epitran")
 else:
     cmd.extend(["--checkpoint-path", selected_checkpoint])
+
+if umap:
+    cmd.append("--umap")
 
 print(f"\nRunning command: {' '.join(cmd)}\n")
 
