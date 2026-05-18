@@ -6,7 +6,7 @@ CEARTIN Machine Project
 
 </div>
 
-This serves as the main Git repository for a Filipino NLP project with RoBERTa.
+This serves as the main Git repository for a Filipino NLP project with ByT5.
 
 ## Setting up
 
@@ -33,3 +33,7 @@ This project uses [`uv`](https://docs.astral.sh/uv/) to manage packages.
 ```
 python3 -m src.scripts.g2p_finetune --dataset "tatoeba"
 ```
+
+> [!NOTE] A note on the `manual_set` files in `data/`
+> TLDR: Use `manual_set.csv`. The others aren't actually manually fixed, so
+  ignore them for now.

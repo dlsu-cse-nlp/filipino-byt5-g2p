@@ -34,7 +34,7 @@ dataset = [
 split_dataset = dataset_from_csv_list(dataset, tokenizer)
 
 train_set = split_dataset["train"]
-manual_set = dataset_from_csv("data/manual_set.csv", tokenizer)
+manual_set = dataset_from_csv("data/manual_set_old.csv", tokenizer)
 manual_set = concatenate_datasets(list(manual_set.values()))
 
 train_sentences = set(train_set["sentence"])
