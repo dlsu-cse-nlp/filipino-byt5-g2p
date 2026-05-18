@@ -110,6 +110,17 @@ def dataset_from_csv(csv_path, tokenizer):
     return split_dataset
 
 
+def save_splits_for_csv(csv_path, tokenizer):
+    ds_dict = dataset_from_csv(csv_path, tokenizer)
+    base = csv_path.removesuffix(".csv")
+    for split_name, dataset in ds_dict.items():
+        out_path = f"{base}_{split_name}.csv"
+        dataset.select_columns(["index", "sentence", "phoneme"]).to_csv(
+            out_path, index=False
+        )
+        print(f"Wrote {len(dataset)} rows to {out_path}")
+
+
 def dataset_from_csv_list(csv_paths, tokenizer):
     grouped_splits = {}
 
@@ -147,3 +158,20 @@ def dataset_from_csv_list(csv_paths, tokenizer):
     )
 
     return concatenated_dict
+
+
+if __name__ == "__main__":
+    from transformers import AutoTokenizer
+
+    csv_paths = [
+        "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
+        "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
+        "data/stress-minimal/stress-minimal_ambiguous_split.csv",
+        "data/stress-minimal/stress-minimal_single_split.csv",
+    ]
+
+    tokenizer = AutoTokenizer.from_pretrained("charsiu/g2p_multilingual_byT5_small_100")
+
+    for csv_path in csv_paths:
+        print(f"\nProcessing {csv_path}")
+        save_splits_for_csv(csv_path, tokenizer)
