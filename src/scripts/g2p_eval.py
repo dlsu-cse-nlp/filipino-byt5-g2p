@@ -28,6 +28,7 @@ from transformers import AutoTokenizer, T5ForConditionalGeneration
 from datasets import concatenate_datasets
 from src.utils.classify_stress import classify_stress
 from src.utils.dataset_from_csv import dataset_from_csv, dataset_from_csv_list
+from src.utils.sliding_window import predict_sliding_window
 
 TRANSLATOR = str.maketrans("", "", string.punctuation)
 
@@ -85,11 +86,12 @@ parser.add_argument("--checkpoint-path", default="")
 parser.add_argument(
     "--dataset",
     default="tatoeba",
-    choices=["tatoeba", "newsph-nli", "combined", "manual"],
+    choices=["tatoeba", "newsph-nli", "combined", "manual", "manual-edited"],
 )
 parser.add_argument("--base-model", action="store_true")
 parser.add_argument("--epitran", action="store_true")
 parser.add_argument("--umap", action="store_true")
+parser.add_argument("--window", action="store_true")
 args = parser.parse_args()
 
 os.makedirs("results", exist_ok=True)
@@ -111,6 +113,10 @@ elif args.dataset == "combined":
     split_dataset = dataset_from_csv_list(dataset, tokenizer)
 elif args.dataset == "manual":
     dataset = "data/manual_set.csv"
+    split_dataset = dataset_from_csv(dataset, tokenizer)
+    split_dataset["test"] = concatenate_datasets(list(split_dataset.values()))
+elif args.dataset == "manual-edited":
+    dataset = "data/manual_set_edited.csv"
 
     # TODO: Dumb hack but whatever lol
     split_dataset = dataset_from_csv(dataset, tokenizer)
@@ -226,8 +232,13 @@ with torch.no_grad():
             pred_text = " ".join(predicted_words)
         else:
             inputs = tokenizer(item["sentence"], return_tensors="pt").to(device)
-            outputs = model.generate(**inputs, max_length=256)
-            pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            if args.window:
+                pred_text = predict_sliding_window(
+                    item["sentence"], model, tokenizer, 11
+                )
+            else:
+                outputs = model.generate(**inputs, max_length=256)
+                pred_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
             if args.umap:
                 encoder_hidden = model.encoder(**inputs).last_hidden_state

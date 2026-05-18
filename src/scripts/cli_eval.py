@@ -6,7 +6,7 @@ import questionary
 
 DEFAULT_CHECKPOINTS_PATH = "models/checkpoints"
 
-DATASETS = ["tatoeba", "newsph-nli", "combined", "manual"]
+DATASETS = ["tatoeba", "newsph-nli", "combined", "manual", "manual-edited"]
 
 
 def get_checkpoints(base_dir=DEFAULT_CHECKPOINTS_PATH):
@@ -35,6 +35,13 @@ if not checkpoints:
 selected_checkpoint = questionary.select(
     "Choose a checkpoint to evaluate:", choices=checkpoints, use_indicator=True
 ).ask()
+
+if not selected_checkpoint:
+    print("Cancelled by user.")
+    sys.exit(0)
+
+# Prompt user to use sliding window or not
+sliding_window = questionary.confirm("Use sliding window?").ask()
 
 if not selected_checkpoint:
     print("Cancelled by user.")
@@ -70,11 +77,15 @@ if selected_checkpoint == "BASE MODEL (Charsiu byT5)":
     cmd.append("--base-model")
 elif selected_checkpoint == "Epitran":
     cmd.append("--epitran")
+elif selected_checkpoint == "Sliding windows":
+    cmd.append("--windows")
 else:
     cmd.extend(["--checkpoint-path", selected_checkpoint])
 
 if umap:
     cmd.append("--umap")
+if sliding_window:
+    cmd.append("--window")
 
 print(f"\nRunning command: {' '.join(cmd)}\n")
 

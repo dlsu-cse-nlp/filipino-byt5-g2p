@@ -8,6 +8,8 @@ import argparse
 import torch
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 
+from src.utils.sliding_window import predict_sliding_window
+
 DEFAULT_SENTENCE = "Puno ng tubig ang baso."
 DEFAULT_CHECKPOINT_PATH = (
     "models/checkpoints/2026-03-16_22-45_baseline_combined/checkpoint-3080"
@@ -36,4 +38,10 @@ def predict(text):
     return tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
 
 
+output_phonemes = predict_sliding_window(args.sentence, model, tokenizer, 11)
+print("\nOriginal sentence:")
+print(args.sentence)
+print("\nNo sliding window:")
 print(predict(args.sentence))
+print("\nSliding window:")
+print(output_phonemes)
