@@ -108,7 +108,7 @@ def convert_clean_and_flatten_data(input_file, output_csv_file, output_jsonl_fil
 if __name__ == "__main__":
     # Replace these with your actual file paths
     INPUT_FILEPATH = (
-        "data/wiktionary-scrape/transcribed/final_homograph_results_gemini.jsonl"
+        "data/wiktionary-scrape/transcribed/homographs_gemini_corrected.jsonl"
     )
     OUTPUT_CSV_FILEPATH = "data/wiktionary-scrape/transcribed/homographs_flattened.csv"
     OUTPUT_JSONL_FILEPATH = (
