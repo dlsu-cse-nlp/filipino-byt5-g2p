@@ -3,6 +3,8 @@ This script concurrently sends "generate a sentence for each possible
 pronunciation" requests to the Gemini API via Vertex AI.
 """
 
+# WARNING: This currently uses the old configuration with Vertex AI
+
 import asyncio
 from typing import List
 

@@ -3,6 +3,8 @@ This script concurrently sends "fill in the pronunciation" requests to the
 Gemini API via Vertex AI.
 """
 
+# WARNING: This currently uses the old configuration with Vertex AI
+
 import argparse
 import asyncio
 import json

@@ -16,6 +16,27 @@ def wikipron_tl_df(wikipron_path):
     homographs = homographs.groupby("word")["pron"].apply(list).to_dict()
     non_homographs = non_homographs.set_index("word")["pron"].to_dict()
 
+    # --------------------------------------------------------------------------
+    fun_df = pd.read_csv("data/wiktionary-scrape/generated/sentences_no_ipa.csv")
+
+    # Ensure column "word" exists; if not, raise a clear error
+    if "word" not in fun_df.columns:
+        raise ValueError(
+            f"fun.csv must contain a 'word' column. Found: {fun_df.columns.tolist()}"
+        )
+    fun_words = set(fun_df["word"].dropna().unique())
+
+    # Iterate over a copy of homographs items
+    updated_homographs = {}
+    for word, prons in homographs.items():
+        if word in fun_words:
+            updated_homographs[word] = prons  # keep as list
+        else:
+            # Move to non_homographs with only the first pronunciation
+            non_homographs[word] = prons[0]  # single string
+    homographs = updated_homographs
+    # --------------------------------------------------------------------------
+
     """
     print("=" * 40)
     print("Processed WikiPron Tagalog dataset.")
@@ -28,7 +49,6 @@ def wikipron_tl_df(wikipron_path):
     return homographs, non_homographs
 
 
-# If run as a script, show information about the WikiPron data...
 if __name__ == "__main__":
     file_path = "data/wikipron/wikipron_tl.tsv"
     homo_dict, non_homo_dict = wikipron_tl_df(file_path)

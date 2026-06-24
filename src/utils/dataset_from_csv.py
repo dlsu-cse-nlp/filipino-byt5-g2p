@@ -65,6 +65,7 @@ def preprocess_dataset(dataset):
     return dataset
 
 
+"""
 def dataset_from_csv(csv_path, tokenizer):
     dataset = load_dataset("csv", data_files=csv_path)["train"]
 
@@ -90,6 +91,19 @@ def dataset_from_csv(csv_path, tokenizer):
         lambda x: preprocess_function(x, tokenizer), batched=True
     )
 
+    out_path = "dataset_preprocessed.csv"
+    dataset.select_columns(
+        [
+            "index",
+            "word",
+            "pronunciation",
+            "sentence",
+            "phoneme",
+        ]
+    ).to_csv(out_path, index=False)
+    print(f"Wrote {len(dataset)} rows to {out_path}")
+    quit()
+
     # Perform an 80%/10%/10% train-test-validation split
     train_test = tokenized_dataset.train_test_split(test_size=0.2, seed=RANDOM_STATE)
     val_test = train_test["test"].train_test_split(test_size=0.5, seed=RANDOM_STATE)
@@ -108,6 +122,57 @@ def dataset_from_csv(csv_path, tokenizer):
     )
 
     return split_dataset
+"""
+
+
+def dataset_from_csv(csv_path, tokenizer):
+    # Derive the split paths from the base csv_path (e.g., path/to/x.csv -> path/to/x)
+    base_path = csv_path.rsplit(".", 1)[0]
+    data_files = {
+        "train": f"{base_path}_train.csv",
+        "test": f"{base_path}_test.csv",
+        "validation": f"{base_path}_validation.csv",
+    }
+    raw_datasets = load_dataset("csv", data_files=data_files)
+
+    processed_splits = {}
+    for split, dataset in raw_datasets.items():
+        # Filter out duplicate sentences
+        sentences = dataset["sentence"]
+        unique_indices = []
+        seen = set()
+
+        for i, s in enumerate(sentences):
+            if s not in seen:
+                unique_indices.append(i)
+                seen.add(s)
+
+        dataset = dataset.select(unique_indices)
+
+        dataset = dataset.filter(
+            lambda x: x["phoneme"] is not None and str(x["phoneme"]).strip() != ""
+        )
+
+        # Preprocessing
+        dataset = preprocess_dataset(dataset)
+        tokenized_dataset = dataset.map(
+            lambda x: preprocess_function(x, tokenizer), batched=True
+        )
+        processed_splits[split] = tokenized_dataset
+
+    # Combine back into a DatasetDict object
+    split_dataset = DatasetDict(processed_splits)
+
+    # Post-processing steps (shuffle train and filter test by length)
+    split_dataset["train"] = split_dataset["train"].shuffle(seed=RANDOM_STATE)
+    split_dataset["test"] = split_dataset["test"].filter(
+        lambda x: len(x["input_ids"]) <= 256
+    )
+
+    return split_dataset
+
+
+# """
 
 
 def save_splits_for_csv(csv_path, tokenizer):
@@ -115,9 +180,9 @@ def save_splits_for_csv(csv_path, tokenizer):
     base = csv_path.removesuffix(".csv")
     for split_name, dataset in ds_dict.items():
         out_path = f"{base}_{split_name}.csv"
-        dataset.select_columns(["index", "sentence", "phoneme"]).to_csv(
-            out_path, index=False
-        )
+        dataset.select_columns(
+            ["index", "word", "pronunciation", "sentence", "phoneme"]
+        ).to_csv(out_path, index=False)
         print(f"Wrote {len(dataset)} rows to {out_path}")
 
 
@@ -164,10 +229,11 @@ if __name__ == "__main__":
     from transformers import AutoTokenizer
 
     csv_paths = [
-        "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
-        "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
-        "data/stress-minimal/stress-minimal_ambiguous_split.csv",
-        "data/stress-minimal/stress-minimal_single_split.csv",
+        # "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
+        # "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
+        # "data/stress-minimal/stress-minimal_ambiguous_split.csv",
+        # "data/stress-minimal/stress-minimal_single_split.csv",
+        # "data/wiktionary-scrape/transcribed/homographs_flattened_old.csv",
     ]
 
     tokenizer = AutoTokenizer.from_pretrained("charsiu/g2p_multilingual_byT5_small_100")

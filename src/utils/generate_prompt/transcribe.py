@@ -73,40 +73,72 @@ on Tagalog grammar and context.
 </phoneme_inventory>
 
 <word_list>
-$pronunciations
+$words
 </word_list>
+
+<pron_choices>
+$pronunciations
+</pron_choices>
 """
 
 
 TEMPLATE = Template(TEMPLATE_STR)
 
+import json
+from string import Template
 
-def _format_word_data(data):
+# ... (PHONEME_INVENTORY, TEMPLATE_STR, TEMPLATE unchanged – keep them as they are) ...
+
+
+def _format_word_data(data, definitions_map=None):
+    """
+    Format one word's pronunciation choices with definition annotations.
+    If definitions_map is provided and the word is found, list each
+    pronunciation together with its definitions.
+    """
+    word = data.get("word")
+    if definitions_map and word in definitions_map:
+        # Build the enriched list
+        matches = definitions_map[word]
+        lines = []
+        for match in matches:
+            prons = match.get("prons", [])
+            defs = match.get("definitions", [])
+            # Use the first pronunciation (or join if multiple, but usually one per match)
+            ipa = prons[0] if prons else ""
+            # Format the definitions as a JSON list for easy parsing by the LLM
+            def_str = json.dumps(defs, ensure_ascii=False)
+            lines.append(f"- {ipa}: {def_str}")
+        return f"{word}:\n" + "\n".join(lines)
+
+    # Fallback: old style (choices or root)
     choices = data.get("choices")
-
     if choices:
-        # If word was found in WikiPron scrape...
         pron_str = ", ".join(choices)
     else:
-        # Otherwise, fall back to root data
         root = data.get("root", {})
         root_word = root.get("word", "")
         root_prons = ", ".join(root.get("choices", []))
         pron_str = f'[ROOT "{root_word}"] {root_prons}'
+    return f"{word}: {pron_str}"
 
-    return f"{data.get("word")}: {pron_str}"
 
+def generate_prompt(sentence, pronunciations, words, definitions_map=None):
+    # Remove duplicates (keep first occurrence of each word)
+    seen = set()
+    unique_pronunciations = []
+    for data in pronunciations:
+        w = data.get("word")
+        if w not in seen:
+            seen.add(w)
+            unique_pronunciations.append(data)
 
-def generate_prompt(sentence, pronunciations, words):
-    # Comma-separated, with each word in quotes
     formatted_words = ", ".join([f'"{word}"' for word in words])
 
-    # Show choices for each ambiguous word
     formatted_pronunciations = "\n".join(
-        _format_word_data(data) for data in pronunciations
+        _format_word_data(data, definitions_map) for data in unique_pronunciations
     )
 
-    # Wrap in quotes
     formatted_sentence = f'"{sentence}"'
 
     return TEMPLATE.safe_substitute(

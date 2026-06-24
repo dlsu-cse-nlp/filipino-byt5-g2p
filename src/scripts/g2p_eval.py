@@ -114,7 +114,7 @@ elif args.dataset == "manual":
 
     # TODO: Dumb hack but whatever lol
     split_dataset = dataset_from_csv(dataset, tokenizer)
-    split_dataset["test"] = concatenate_datasets(list(split_dataset.values()))
+    # split_dataset["test"] = concatenate_datasets(list(split_dataset.values()))
 
 # Use CUDA if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -240,8 +240,8 @@ with torch.no_grad():
 
         pred_segs = ft.ipa_segs(pred_text)
 
-        # print("-" * 80)
-        # print(f"Target:  {target_text}\nPredict: {pred_text}")
+        print("-" * 80)
+        print(f"Target:  {target_text}\nPredict: {pred_text}")
 
         # Calculate PER distance (does not include normalization yet)
         per_dist = dst.levenshtein_distance(pred_segs, target_segs)
@@ -264,8 +264,8 @@ with torch.no_grad():
         total_phonemes += len(target_segs)
         total_chars += len(target_text)
 
-        # running_per = total_per_dist / total_phonemes if total_phonemes > 0 else 0
-        # print(f"Running PER: {running_per}")
+        running_per = total_per_dist / total_phonemes if total_phonemes > 0 else 0
+        print(f"Running PER: {running_per}")
 
         # For sample-level PER/CER/PFER, normalize by sample lengths
         output.append(

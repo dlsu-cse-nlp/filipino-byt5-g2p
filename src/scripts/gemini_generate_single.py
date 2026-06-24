@@ -3,6 +3,8 @@ This script is used to test the Gemini API with a single "generate a sentence
 for each possible pronunciation" request.
 """
 
+# WARNING: This currently uses the old configuration with Vertex AI
+
 from typing import List
 
 from dotenv import dotenv_values
