@@ -63,7 +63,7 @@ def count_vowels(s: str) -> int:
 def load_csv(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        required = {"index", "word", "pronunciation", "sentence", "phoneme"}
+        required = {"index", "sentence", "phoneme"}
         if not required.issubset(set(reader.fieldnames or [])):
             missing = required - set(reader.fieldnames or [])
             sys.exit(f"[ERROR] CSV is missing required columns: {missing}")
