@@ -3,14 +3,13 @@
 fix_phonemes.py — Interactive Filipino G2P correction tool.
 
 Usage:
-    python fix_phonemes.py <input.csv> [--output-dir <dir>]
+    python fix_phonemes.py <input.csv>
 
 CSV must have columns: index, word, pronunciation, sentence, phoneme
 """
 
 import argparse
 import csv
-import os
 import re
 import sys
 from collections import defaultdict
@@ -19,6 +18,15 @@ from pathlib import Path
 
 import questionary
 from questionary import Style
+
+from src.utils.phoneme_fixes import (
+    apply_replacement,
+    build_index,
+    normalize_word,
+    tokenize_phonemes,
+    tokenize_sentence,
+    write_csv,
+)
 
 # ── Styling ──────────────────────────────────────────────────────────────────
 
@@ -37,25 +45,6 @@ STYLE = Style(
     ]
 )
 
-# ── Text helpers ──────────────────────────────────────────────────────────────
-
-
-def normalize_word(w: str) -> str:
-    """Lowercase and strip punctuation for matching purposes."""
-    return re.sub(r"[^\w']", "", w, flags=re.UNICODE).lower()
-
-
-def tokenize_sentence(sentence: str) -> list[str]:
-    """Split a sentence into word tokens, stripping punctuation."""
-    tokens = re.split(r"\s+", sentence.strip())
-    return [normalize_word(t) for t in tokens if normalize_word(t)]
-
-
-def tokenize_phonemes(phoneme_str: str) -> list[str]:
-    """Split IPA phoneme string on whitespace."""
-    return phoneme_str.strip().split()
-
-
 # ── CSV loading ───────────────────────────────────────────────────────────────
 
 
@@ -69,89 +58,73 @@ def load_csv(path: str) -> list[dict]:
         return list(reader)
 
 
-# ── Index building ─────────────────────────────────────────────────────────────
-#
-# word_pron_map  : word → set of IPA strings seen for that word
-# occurrence_map : (word, ipa) → list of (row_index, token_index) in the CSV rows
-#
-# We need occurrence_map so replacements are surgically precise — only
-# nasaan→na'saʔan pairs are touched, not some other word that happens to
-# share the same IPA string.
+# ── Occurrence preview ────────────────────────────────────────────────────────
+
+PAGE_SIZE = 5
 
 
-def build_index(rows: list[dict]):
-    word_pron_map: dict[str, set[str]] = defaultdict(set)
-    # (norm_word, ipa) -> [(row_idx, token_idx), ...]
-    occurrence_map: dict[tuple[str, str], list[tuple[int, int]]] = defaultdict(list)
-
-    for row_idx, row in enumerate(rows):
-        words = tokenize_sentence(row["sentence"])
-        ipas = tokenize_phonemes(row["phoneme"])
-
-        if len(words) != len(ipas):
-            # Silently skip misaligned rows (could warn if desired)
-            continue
-
-        for tok_idx, (w, ipa) in enumerate(zip(words, ipas)):
-            word_pron_map[w].add(ipa)
-            occurrence_map[(w, ipa)].append((row_idx, tok_idx))
-
-    return word_pron_map, occurrence_map
-
-
-# ── Replacement ───────────────────────────────────────────────────────────────
-
-
-def apply_replacement(
+def preview_occurrences(
     rows: list[dict],
     occurrence_map: dict[tuple[str, str], list[tuple[int, int]]],
     norm_word: str,
-    old_ipa: str,
-    new_ipa: str,
-) -> list[dict]:
+    ipas_to_preview: list[str],
+) -> None:
     """
-    Replace old_ipa with new_ipa for every (norm_word, old_ipa) occurrence.
-    Works by re-building the phoneme string of affected rows token-by-token.
-    Other (word, ipa) pairs are untouched.
+    Interactively page through every sentence that contains norm_word mapped
+    to any of the given IPA strings, grouped by IPA variant.
     """
-    rows = deepcopy(rows)
+    entries: list[tuple[str, int, int]] = []
+    for ipa in ipas_to_preview:
+        for row_idx, tok_idx in occurrence_map.get((norm_word, ipa), []):
+            entries.append((ipa, row_idx, tok_idx))
 
-    occurrences = occurrence_map.get((norm_word, old_ipa), [])
-    if not occurrences:
-        return rows
+    if not entries:
+        print("  ⚠  No occurrences found.\n")
+        return
 
-    # Group by row so we can fix each phoneme string once
-    from collections import defaultdict as dd
+    entries.sort(key=lambda x: (x[0], x[1]))
+    total = len(entries)
+    page = 0
 
-    by_row: dict[int, list[int]] = dd(list)
-    for row_idx, tok_idx in occurrences:
-        by_row[row_idx].append(tok_idx)
+    while True:
+        start = page * PAGE_SIZE
+        end = min(start + PAGE_SIZE, total)
+        print(
+            f"\n  📋  Occurrences for '{norm_word}'  "
+            f"[{start + 1}–{end} of {total}]\n"
+            f"  {'─' * 60}"
+        )
 
-    for row_idx, tok_indices in by_row.items():
-        row = rows[row_idx]
-        ipas = tokenize_phonemes(row["phoneme"])
-        tok_set = set(tok_indices)
-        ipas = [new_ipa if i in tok_set else ipa for i, ipa in enumerate(ipas)]
-        rows[row_idx]["phoneme"] = " ".join(ipas)
+        for ipa, row_idx, tok_idx in entries[start:end]:
+            row = rows[row_idx]
+            sentence = row["sentence"]
+            phonemes = tokenize_phonemes(row["phoneme"])
 
-    return rows
+            highlighted = []
+            for i, ph in enumerate(phonemes):
+                highlighted.append(f"[{ph}]" if i == tok_idx else ph)
+            phoneme_str = " ".join(highlighted)
 
+            print(f"  IPA : {ipa}")
+            print(f"  sent: {sentence}")
+            print(f"  phon: {phoneme_str}")
+            print(f"  {'─' * 60}")
 
-# ── CSV writing ───────────────────────────────────────────────────────────────
+        nav_choices = []
+        if end < total:
+            nav_choices.append(questionary.Choice("▶  Next page", value="next"))
+        if page > 0:
+            nav_choices.append(questionary.Choice("◀  Previous page", value="prev"))
+        nav_choices.append(questionary.Choice("✖  Close preview", value="close"))
 
+        action = questionary.select("", choices=nav_choices, style=STYLE).ask()
 
-def write_csv(rows: list[dict], output_dir: str, input_path: str) -> str:
-    os.makedirs(output_dir, exist_ok=True)
-    stem = Path(input_path).stem
-    out_path = os.path.join(output_dir, f"{stem}_fixed.csv")
-
-    fieldnames = list(rows[0].keys()) if rows else []
-    with open(out_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    return out_path
+        if action == "next":
+            page += 1
+        elif action == "prev":
+            page -= 1
+        else:
+            break
 
 
 # ── Main interaction loop ─────────────────────────────────────────────────────
@@ -162,11 +135,6 @@ def main():
         description="Interactively fix Filipino G2P phoneme mappings."
     )
     parser.add_argument("csv_file", help="Path to input CSV file")
-    parser.add_argument(
-        "--output-dir",
-        default="output",
-        help="Directory for output CSV (default: ./output)",
-    )
     args = parser.parse_args()
 
     print(f"\n📂  Loading {args.csv_file} …")
@@ -204,33 +172,54 @@ def main():
 
         total_count = sum(counts.values())
         NUCLEAR = "__NUCLEAR__"
+        PREVIEW = "__PREVIEW__"
 
-        choices = [
-            questionary.Choice(
-                title=f"{ipa}  ({counts[ipa]} occurrence{'s' if counts[ipa] != 1 else ''})",
-                value=ipa,
-            )
-            for ipa in pronunciations
-        ] + [
-            questionary.Choice(
-                title=f"☢  Replace ALL pronunciations  ({total_count} total occurrences)",
-                value=NUCLEAR,
-            ),
-        ]
+        while True:
+            choices = [
+                questionary.Choice(
+                    title=f"{ipa}  ({counts[ipa]} occurrence{'s' if counts[ipa] != 1 else ''})",
+                    value=ipa,
+                )
+                for ipa in pronunciations
+            ] + [
+                questionary.Choice(
+                    title="🔍  Preview occurrences  (select variants above first, or none for all)",
+                    value=PREVIEW,
+                ),
+                questionary.Choice(
+                    title=f"☢  Replace ALL pronunciations  ({total_count} total occurrences)",
+                    value=NUCLEAR,
+                ),
+            ]
 
-        selected_ipas = questionary.checkbox(
-            f"Pronunciations for '{norm}'  (space to select, enter to confirm):",
-            choices=choices,
-            style=STYLE,
-        ).ask()
+            selected_ipas = questionary.checkbox(
+                f"Pronunciations for '{norm}'  (space to select, enter to confirm):",
+                choices=choices,
+                style=STYLE,
+            ).ask()
 
-        # None = Ctrl-C, empty list = enter with nothing checked
+            # None = Ctrl-C, empty list = enter with nothing checked
+            if not selected_ipas:
+                break
+
+            if PREVIEW in selected_ipas:
+                # Preview the explicitly selected IPA variants, or all if none picked
+                to_preview = [s for s in selected_ipas if s not in (PREVIEW, NUCLEAR)]
+                if not to_preview:
+                    to_preview = list(pronunciations)
+                preview_occurrences(pending_rows, occurrence_map, norm, to_preview)
+                continue  # loop back to the same checkbox screen
+
+            break  # proceed to replacement
+
         if not selected_ipas:
             continue
 
         is_nuclear = NUCLEAR in selected_ipas
         targets = (
-            pronunciations if is_nuclear else [s for s in selected_ipas if s != NUCLEAR]
+            pronunciations
+            if is_nuclear
+            else [s for s in selected_ipas if s not in (NUCLEAR, PREVIEW)]
         )
         target_count = sum(counts[ipa] for ipa in targets)
 
@@ -305,7 +294,7 @@ def main():
         ).ask()
 
         if action == ACTION_SAVE or action == ACTION_QUIT:
-            out_path = write_csv(pending_rows, args.output_dir, args.csv_file)
+            out_path = write_csv(pending_rows, args.csv_file)
             print(f"\n  💾  Saved → {out_path}\n")
 
         if action == ACTION_QUIT:
