@@ -1,10 +1,15 @@
 import pandas as pd
 
+from src.utils.normalize_characters import normalize_characters
+
 
 def wikipron_tl_df(wikipron_path):
     # Read from file and drop all duplicates
     raw_df = pd.read_csv(wikipron_path, sep="\t", header=None, names=["word", "pron"])
     raw_df = raw_df.drop_duplicates(keep="first").reset_index(drop=True)
+
+    # TODO: Not sure if this breaks anything probably not
+    raw_df["pron"] = raw_df["pron"].apply(normalize_characters)
 
     # Identify all indices where spelling is identical
     homograph_mask = raw_df["word"].duplicated(keep=False)
