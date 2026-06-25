@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-vowel_mismatches.py — Browse and fix word-IPA pairs where vowel counts disagree.
+vowel_mismatches.py — Browse and fix word-IPA pairs where vowel counts disagree,
+or where a word ends in 'ng' but the IPA does not end in 'ŋ'.
 
 Usage:
     python vowel_mismatches.py <input.csv>
@@ -38,6 +39,11 @@ def count_vowels(s: str) -> int:
     return sum(1 for ch in s.lower() if ch in VOWELS)
 
 
+def has_ng_tail_mismatch(word: str, ipa: str) -> bool:
+    """True when the grapheme ends in 'ng' but the IPA does not end in 'ŋ'."""
+    return word.lower().endswith("ng") and not ipa.endswith("ŋ")
+
+
 def load_csv(path: str) -> list[dict]:
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -50,8 +56,10 @@ def load_csv(path: str) -> list[dict]:
 
 def find_mismatches(rows: list[dict]) -> list[dict]:
     """
-    Returns a list of dicts, one per unique (word, ipa) pair with a vowel-count
-    mismatch, sorted by descending frequency.
+    Returns a list of dicts, one per unique (word, ipa) pair with either:
+      • a vowel-count mismatch, or
+      • a word ending in 'ng' whose IPA does not end in 'ŋ'
+    Sorted by descending frequency.
     """
     pair_info: dict[tuple[str, str], dict] = {}
 
@@ -66,7 +74,10 @@ def find_mismatches(rows: list[dict]) -> list[dict]:
             wv = count_vowels(w)
             iv = count_vowels(ipa)
 
-            if wv == iv:
+            vowel_mismatch = wv != iv
+            ng_mismatch = has_ng_tail_mismatch(w, ipa)
+
+            if not vowel_mismatch and not ng_mismatch:
                 continue
 
             key = (w, ipa)
@@ -76,6 +87,8 @@ def find_mismatches(rows: list[dict]) -> list[dict]:
                     "ipa": ipa,
                     "word_vowels": wv,
                     "ipa_vowels": iv,
+                    "vowel_mismatch": vowel_mismatch,
+                    "ng_mismatch": ng_mismatch,
                     "count": 0,
                     "examples": [],
                 }
@@ -86,13 +99,15 @@ def find_mismatches(rows: list[dict]) -> list[dict]:
 
 
 def mismatch_label(m: dict) -> str:
-    delta = m["ipa_vowels"] - m["word_vowels"]
-    arrow = f"+{delta}" if delta > 0 else str(delta)
-    return (
-        f"{m['word']:<20} →  {m['ipa']:<24}"
-        f"  [{m['word_vowels']}v → {m['ipa_vowels']}v, {arrow}]"
-        f"  ×{m['count']}"
-    )
+    tags = []
+    if m["vowel_mismatch"]:
+        delta = m["ipa_vowels"] - m["word_vowels"]
+        arrow = f"+{delta}" if delta > 0 else str(delta)
+        tags.append(f"{m['word_vowels']}v→{m['ipa_vowels']}v {arrow}")
+    if m["ng_mismatch"]:
+        tags.append("ng≠ŋ")
+    tag_str = "  [" + ", ".join(tags) + f"]  ×{m['count']}"
+    return f"{m['word']:<20} →  {m['ipa']:<24}{tag_str}"
 
 
 def browse_pair(
@@ -119,9 +134,16 @@ def browse_pair(
         start = page * PAGE_SIZE
         end = min(start + PAGE_SIZE, total)
 
+        tags = []
+        if m["vowel_mismatch"]:
+            tags.append(f"{m['word_vowels']}v → {m['ipa_vowels']}v")
+        if m["ng_mismatch"]:
+            tags.append("ng ≠ ŋ")
+        tag_str = ", ".join(tags)
+
         print(
             f"\n  📋  '{m['word']}' → {m['ipa']}"
-            f"  [{m['word_vowels']}v → {m['ipa_vowels']}v]"
+            f"  [{tag_str}]"
             f"  [{start + 1}–{end} of {total}]\n"
             f"  {'─' * 64}"
         )
@@ -201,6 +223,8 @@ def _do_replace(
     # Update the mismatch entry so the list reflects the change on re-render
     m["ipa"] = new_ipa
     m["ipa_vowels"] = count_vowels(new_ipa)
+    m["ng_mismatch"] = has_ng_tail_mismatch(m["word"], new_ipa)
+    m["vowel_mismatch"] = m["word_vowels"] != m["ipa_vowels"]
 
     action = questionary.select(
         "What would you like to do next?",
@@ -294,7 +318,7 @@ def browse_mismatches(
     pending_rows = deepcopy(rows)
 
     if total == 0:
-        print("\n  ✅  No vowel-count mismatches found in the dataset.\n")
+        print("\n  ✅  No mismatches found in the dataset.\n")
         return
 
     page = 0
@@ -303,10 +327,7 @@ def browse_mismatches(
         start = page * PAGE_SIZE
         end = min(start + PAGE_SIZE, total)
 
-        print(
-            f"\n  🔤  Vowel-count mismatches  [{start + 1}–{end} of {total}]\n"
-            f"  {'─' * 64}"
-        )
+        print(f"\n  🔤  Mismatches  [{start + 1}–{end} of {total}]\n" f"  {'─' * 64}")
 
         choices = []
         for i, m in enumerate(mismatches[start:end], start=start + 1):
@@ -355,7 +376,7 @@ def browse_mismatches(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Browse and fix word-IPA pairs with mismatched vowel counts."
+        description="Browse and fix word-IPA pairs with mismatched vowel counts or ng/ŋ tail mismatches."
     )
     parser.add_argument("csv_file", help="Path to input CSV file")
     args = parser.parse_args()
@@ -367,13 +388,16 @@ def main():
     print("    Building index …")
     _, occurrence_map = build_index(rows)
 
-    print("    Scanning for vowel-count mismatches …")
+    print("    Scanning for mismatches …")
     mismatches = find_mismatches(rows)
     total_pairs = len(mismatches)
     total_instances = sum(m["count"] for m in mismatches)
+    n_vowel = sum(1 for m in mismatches if m["vowel_mismatch"])
+    n_ng = sum(1 for m in mismatches if m["ng_mismatch"])
     print(
         f"    {total_pairs} unique mismatched pair(s) "
-        f"across {total_instances} total occurrence(s).\n"
+        f"across {total_instances} total occurrence(s) "
+        f"({n_vowel} vowel-count, {n_ng} ng/ŋ tail).\n"
     )
 
     browse_mismatches(mismatches, rows, occurrence_map, args.csv_file)
