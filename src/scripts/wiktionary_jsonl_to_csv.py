@@ -1,3 +1,5 @@
+"""Converts the .jsonl produced by the Wiktionary-guided dataset into .csv"""
+
 import csv
 import json
 
@@ -80,20 +82,17 @@ def convert_clean_and_flatten_data(input_file, output_csv_file, output_jsonl_fil
                         f"Line ~{line_index}: Found and removed newline in record for word: '{row.get('word')}'"
                     )
 
-                # 1. Save to the cleaned JSONL file (retaining 'answers' as a proper JSON array)
                 jsonl_outfile.write(json.dumps(row, ensure_ascii=False) + "\n")
 
                 # Prepare row for CSV writing (we copy it so we don't overwrite the original dict)
                 csv_row = row.copy()
 
-                # 2. Format the 'answers' list into a string so it safely fits into a single CSV cell
                 if isinstance(csv_row.get("answers"), list):
                     # Using json.dumps keeps it formatted as '["ans1", "ans2"]' in the CSV string
                     csv_row["answers"] = json.dumps(
                         csv_row["answers"], ensure_ascii=False
                     )
 
-                # 3. Write the unique, flattened row to the CSV file
                 writer.writerow(csv_row)
 
     print("\n--- Summary ---")
@@ -104,9 +103,7 @@ def convert_clean_and_flatten_data(input_file, output_csv_file, output_jsonl_fil
     print(f" - Cleaned JSONL saved to: '{output_jsonl_file}'")
 
 
-# --- Example Usage ---
 if __name__ == "__main__":
-    # Replace these with your actual file paths
     INPUT_FILEPATH = (
         "data/wiktionary-scrape/transcribed/homographs_gemini_corrected.jsonl"
     )

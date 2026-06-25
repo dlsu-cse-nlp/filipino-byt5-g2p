@@ -15,11 +15,14 @@ VOWELS = "aeiouəʌɛɪʊ"
 CLASSES = ["Malumay", "Malumi", "Mabilis", "Maragsa", "None", "Nonstandard"]
 
 """
-    Malumay - 'buhay - stress on penult
-    Malumi - 'pasoʔ - stress on penult + ends in glottal stop
-    Mabilis - bu'hay - stress on ult
-    Maragsa - pa'soʔ - stress on ult + ends in glottal stop
+Malumay - 'buhay - stress on penult
+Malumi - 'pasoʔ - stress on penult + ends in glottal stop
+Mabilis - bu'hay - stress on ult
+Maragsa - pa'soʔ - stress on ult + ends in glottal stop
 """
+
+# TODO: How do we handle secondary stress (often when a verb is conjugated into
+# the contemplative aspect)
 
 
 def syllabicate(phonetic_word):
@@ -161,6 +164,6 @@ def run_evaluation(pkl_path: str):
         print()
 
 
-run_evaluation(
-    "results/output_2026-04-03_00-54_tatoeba_newsph_stress_word_checkpoint-9670_manual.pkl"
-)
+# run_evaluation(
+#     "results/output_2026-04-03_00-54_tatoeba_newsph_stress_word_checkpoint-9670_manual.pkl"
+# )

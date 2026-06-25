@@ -1,3 +1,5 @@
+"""Matches Wiktionary IPA entries with definitions"""
+
 import json
 import re
 import sys
@@ -6,7 +8,6 @@ import time
 import requests
 from bs4 import BeautifulSoup
 
-# Configuration
 TARGET_LANGUAGE = "Tagalog"
 INPUT_FILE = "data/wiktionary-scrape/wikipron_filtered.jsonl"
 OUTPUT_FILE = "finalfinalfinal.jsonl"
@@ -116,7 +117,6 @@ def scrape_wiktionary_structure(word, target_lang):
                 current_pos = clean_text
 
         else:
-            # ---------------- Pronunciation extraction ----------------
             ipa_spans_all = current_node.find_all("span", class_="IPA")
             if ipa_spans_all:
                 found_structured = False
@@ -135,7 +135,6 @@ def scrape_wiktionary_structure(word, target_lang):
                                 r"\b(noun|verb|adjective|adverb|pronoun|preposition|conjunction|interjection|particle)\b",
                                 parent_text,
                             )
-                            # Extract gloss inside double quotes after the IPA
                             gloss_match = re.search(r"“([^”]+)”", parent.get_text())
                             if gloss_match:
                                 gloss_raw = gloss_match.group(1).strip()
@@ -159,7 +158,6 @@ def scrape_wiktionary_structure(word, target_lang):
                         if sp.get_text().strip("/[]")
                     ]
 
-            # ---------------- Definitions extraction ----------------
             if current_node.name == "ol":
                 for li in current_node.find_all("li", recursive=False):
                     for sub_list in li.find_all(["ul", "dl"]):
@@ -190,12 +188,10 @@ def match_jsonl_entry(entry, scraped_blocks):
     input_prons = entry.get("prons", [])
 
     for block in scraped_blocks:
-        # We'll build a list of (ordered_list_of_input_prons, definitions)
         pair_list = []
 
         for sp in block["pronunciations"]:
             normalized_ipa = normalize_characters(sp["ipa"])
-            # Keep the order from the input list; that order should reflect Wiktionary order
             matched_input_prons = [ip for ip in input_prons if ip == normalized_ipa]
             if not matched_input_prons:
                 continue
@@ -233,10 +229,8 @@ def match_jsonl_entry(entry, scraped_blocks):
                 matched_defs.append(def_text)
 
             if matched_defs:
-                # Store the matched input prons as a list (preserving order)
                 pair_list.append((list(matched_input_prons), matched_defs))
 
-        # Merge groups that have the exact same definitions, preserving order
         defs_to_prons = {}
         for prons_list, defs in pair_list:
             defs_tuple = tuple(defs)
@@ -252,7 +246,7 @@ def match_jsonl_entry(entry, scraped_blocks):
                 {"prons": ordered_prons, "definitions": list(defs_tuple)}
             )
 
-    # Remove completely duplicate matches (same prons list AND same definitions)
+    # Remove completely duplicate matches
     unique_results = []
     seen = set()
     for res in matched_results:

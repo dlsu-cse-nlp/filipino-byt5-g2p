@@ -1,39 +1,26 @@
-"""
-phoneme_utils.py — Shared helpers for fix_phonemes.py and vowel_mismatches.py.
-"""
-
 import csv
 import os
 import re
 from collections import defaultdict
 from copy import deepcopy
 
-# ── Text helpers ──────────────────────────────────────────────────────────────
 
-
-def normalize_word(w: str) -> str:
+def normalize_word(w):
     """Lowercase and strip punctuation for matching purposes."""
     return re.sub(r"[^\w']", "", w, flags=re.UNICODE).lower()
 
 
-def tokenize_sentence(sentence: str) -> list[str]:
+def tokenize_sentence(sentence):
     tokens = re.split(r"\s+", sentence.strip())
     return [normalize_word(t) for t in tokens if normalize_word(t)]
 
 
-def tokenize_phonemes(phoneme_str: str) -> list[str]:
+def tokenize_phonemes(phoneme_str):
     return phoneme_str.strip().split()
 
 
-# ── Index building ────────────────────────────────────────────────────────────
-
-
-def build_index(rows: list[dict]):
-    """
-    Returns:
-        word_pron_map  : word → set of IPA strings
-        occurrence_map : (word, ipa) → [(row_idx, tok_idx), ...]
-    """
+def build_index(rows):
+    """Returns a set of IPA strings and their occurences"""
     word_pron_map: dict[str, set[str]] = defaultdict(set)
     occurrence_map: dict[tuple[str, str], list[tuple[int, int]]] = defaultdict(list)
 
@@ -51,20 +38,8 @@ def build_index(rows: list[dict]):
     return word_pron_map, occurrence_map
 
 
-# ── Replacement ───────────────────────────────────────────────────────────────
-
-
-def apply_replacement(
-    rows: list[dict],
-    occurrence_map: dict[tuple[str, str], list[tuple[int, int]]],
-    norm_word: str,
-    old_ipa: str,
-    new_ipa: str,
-) -> list[dict]:
-    """
-    Replace old_ipa with new_ipa for every (norm_word, old_ipa) occurrence.
-    Returns a deep-copied, updated rows list. Other (word, ipa) pairs untouched.
-    """
+def apply_replacement(rows, occurrence_map, norm_word, old_ipa, new_ipa):
+    """Replace old_ipa with new_ipa for every (norm_word, old_ipa) occurrence."""
     rows = deepcopy(rows)
 
     occurrences = occurrence_map.get((norm_word, old_ipa), [])
@@ -85,14 +60,8 @@ def apply_replacement(
     return rows
 
 
-# ── Atomic CSV write ──────────────────────────────────────────────────────────
-
-
-def write_csv(rows: list[dict], input_path: str) -> str:
-    """
-    Atomically overwrite input_path in-place via a sibling .tmp file.
-    A crash mid-write leaves the original untouched.
-    """
+def write_csv(rows, input_path):
+    """Atomically overwrite input_path in-place via a sibling .tmp file."""
     input_path = os.path.abspath(input_path)
     tmp_path = input_path + ".tmp"
 

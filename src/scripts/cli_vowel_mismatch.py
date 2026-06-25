@@ -21,43 +21,21 @@ from copy import deepcopy
 import questionary
 from questionary import Style
 
-from src.utils.phoneme_fixes import (
+from src.utils.phoneme_utils import (
     apply_replacement,
     build_index,
     tokenize_phonemes,
     tokenize_sentence,
     write_csv,
 )
-
-# ── Styling ───────────────────────────────────────────────────────────────────
-
-STYLE = Style(
-    [
-        ("qmark", "fg:#f5a623 bold"),
-        ("question", "bold"),
-        ("answer", "fg:#5bc4f5 bold"),
-        ("pointer", "fg:#f5a623 bold"),
-        ("highlighted", "fg:#f5a623 bold"),
-        ("selected", "fg:#5bc4f5"),
-        ("separator", "fg:#6c6c6c"),
-        ("instruction", "fg:#6c6c6c"),
-        ("text", ""),
-        ("disabled", "fg:#858585 italic"),
-    ]
-)
+from src.utils.questionary_style import STYLE
 
 VOWELS = set("aeiou")
 PAGE_SIZE = 45
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
 def count_vowels(s: str) -> int:
     return sum(1 for ch in s.lower() if ch in VOWELS)
-
-
-# ── CSV loading ───────────────────────────────────────────────────────────────
 
 
 def load_csv(path: str) -> list[dict]:
@@ -68,9 +46,6 @@ def load_csv(path: str) -> list[dict]:
             missing = required - set(reader.fieldnames or [])
             sys.exit(f"[ERROR] CSV is missing required columns: {missing}")
         return list(reader)
-
-
-# ── Analysis ──────────────────────────────────────────────────────────────────
 
 
 def find_mismatches(rows: list[dict]) -> list[dict]:
@@ -118,9 +93,6 @@ def mismatch_label(m: dict) -> str:
         f"  [{m['word_vowels']}v → {m['ipa_vowels']}v, {arrow}]"
         f"  ×{m['count']}"
     )
-
-
-# ── Pair detail view (sentences + replace) ────────────────────────────────────
 
 
 def browse_pair(
@@ -204,6 +176,7 @@ def _do_replace(
     new_ipa = questionary.text(
         f"Replace  {m['ipa']}  →  (enter new IPA, or leave blank to cancel):",
         style=STYLE,
+        default=m["ipa"],
     ).ask()
 
     if not new_ipa or not new_ipa.strip():
@@ -228,6 +201,69 @@ def _do_replace(
     # Update the mismatch entry so the list reflects the change on re-render
     m["ipa"] = new_ipa
     m["ipa_vowels"] = count_vowels(new_ipa)
+
+    action = questionary.select(
+        "What would you like to do next?",
+        choices=[
+            "💾  Save & continue",
+            "↩  Continue without saving",
+        ],
+        style=STYLE,
+    ).ask()
+
+    if action and action.startswith("💾"):
+        out_path = write_csv(pending_rows, csv_path)
+        print(f"\n  💾  Saved → {out_path}\n")
+
+    return pending_rows
+
+
+def _do_delete_below_threshold(
+    mismatches: list[dict],
+    pending_rows: list[dict],
+    csv_path: str,
+) -> list[dict]:
+    """Collect all row indices touched by low-frequency mismatch pairs, confirm, delete."""
+    threshold_str = questionary.text(
+        "Delete sentences containing pairs with frequency strictly below:",
+        style=STYLE,
+    ).ask()
+
+    if not threshold_str or not threshold_str.strip():
+        print("  Cancelled.\n")
+        return pending_rows
+
+    try:
+        threshold = int(threshold_str.strip())
+    except ValueError:
+        print("  Invalid number. Cancelled.\n")
+        return pending_rows
+
+    # Collect the set of row indices to drop
+    rows_to_delete: set[int] = set()
+    pairs_affected = 0
+    for m in mismatches:
+        if m["count"] < threshold:
+            pairs_affected += 1
+            for row_idx, _ in m["examples"]:
+                rows_to_delete.add(row_idx)
+
+    if not rows_to_delete:
+        print(f"  No pairs below frequency {threshold}. Nothing to delete.\n")
+        return pending_rows
+
+    print(
+        f"\n  ⚠️   This will delete {len(rows_to_delete)} sentence(s) "
+        f"spanning {pairs_affected} mismatch pair(s) with frequency < {threshold}."
+    )
+
+    confirmed = questionary.confirm("  Proceed?", default=False, style=STYLE).ask()
+    if not confirmed:
+        print("  Cancelled.\n")
+        return pending_rows
+
+    pending_rows = [r for i, r in enumerate(pending_rows) if i not in rows_to_delete]
+    print(f"\n  🗑️   Deleted {len(rows_to_delete)} sentence(s).\n")
 
     action = questionary.select(
         "What would you like to do next?",
@@ -285,6 +321,11 @@ def browse_mismatches(
             choices.append(questionary.Choice("▶  Next page", value="next"))
         if page > 0:
             choices.append(questionary.Choice("◀  Previous page", value="prev"))
+        choices.append(
+            questionary.Choice(
+                "🗑️   Delete sentences below frequency threshold", value="delete_below"
+            )
+        )
         choices.append(questionary.Choice("✖  Quit", value="quit"))
 
         action = questionary.select(
@@ -299,6 +340,10 @@ def browse_mismatches(
             page += 1
         elif action == "prev":
             page -= 1
+        elif action == "delete_below":
+            pending_rows = _do_delete_below_threshold(
+                mismatches, pending_rows, csv_path
+            )
         else:
             pending_rows = browse_pair(
                 action, rows, pending_rows, occurrence_map, csv_path

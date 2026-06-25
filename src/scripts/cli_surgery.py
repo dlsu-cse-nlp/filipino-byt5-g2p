@@ -19,7 +19,7 @@ from pathlib import Path
 import questionary
 from questionary import Style
 
-from src.utils.phoneme_fixes import (
+from src.utils.phoneme_utils import (
     apply_replacement,
     build_index,
     normalize_word,
@@ -27,25 +27,7 @@ from src.utils.phoneme_fixes import (
     tokenize_sentence,
     write_csv,
 )
-
-# ── Styling ──────────────────────────────────────────────────────────────────
-
-STYLE = Style(
-    [
-        ("qmark", "fg:#f5a623 bold"),
-        ("question", "bold"),
-        ("answer", "fg:#5bc4f5 bold"),
-        ("pointer", "fg:#f5a623 bold"),
-        ("highlighted", "fg:#f5a623 bold"),
-        ("selected", "fg:#5bc4f5"),
-        ("separator", "fg:#6c6c6c"),
-        ("instruction", "fg:#6c6c6c"),
-        ("text", ""),
-        ("disabled", "fg:#858585 italic"),
-    ]
-)
-
-# ── CSV loading ───────────────────────────────────────────────────────────────
+from src.utils.questionary_style import STYLE
 
 
 def load_csv(path: str) -> list[dict]:
@@ -57,8 +39,6 @@ def load_csv(path: str) -> list[dict]:
             sys.exit(f"[ERROR] CSV is missing required columns: {missing}")
         return list(reader)
 
-
-# ── Occurrence preview ────────────────────────────────────────────────────────
 
 PAGE_SIZE = 5
 
@@ -125,9 +105,6 @@ def preview_occurrences(
             page -= 1
         else:
             break
-
-
-# ── Main interaction loop ─────────────────────────────────────────────────────
 
 
 def main():

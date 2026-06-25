@@ -18,8 +18,7 @@ def normalize_characters(text):
         "Ɂ": "ʔ",
         ".": "",
         "ˈ": "'",
-        "‍": "",  # Zero-width joiner that Gemini hallucinates sometimes
-        # For Gemini 2.5-Flash-Lite output
+        "‍": "",
         "ɛ": "e",
         "ɪ": "i",
         "ʊ": "u",

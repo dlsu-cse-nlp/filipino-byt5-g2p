@@ -91,14 +91,12 @@ def get_definitions_with_retry(word, max_retries=20, initial_delay=0.5):
                 f"Transient error for '{word}', retry {attempt+1}/{max_retries} in {wait:.1f}s..."
             )
             time.sleep(wait)
-    # All retries exhausted
     tqdm.write(
         f"Failed to fetch definitions for '{word}' after {max_retries} attempts."
     )
     return []
 
 
-# ---------- Main processing ----------
 def main():
     input_file = "data/wiktionary-scrape/wikipron_filtered.jsonl"
     output_file = "data/wiktionary-scrape/initial_heteronyms.jsonl"
@@ -144,10 +142,8 @@ def main():
             tqdm.write("→ KEPT (heteronym)")
             heteronyms.append(entry)
 
-        # Polite delay
         time.sleep(0.2)
 
-    # Write results
     with open(output_file, "w", encoding="utf-8") as f:
         for entry in heteronyms:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")

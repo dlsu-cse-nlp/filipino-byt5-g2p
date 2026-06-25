@@ -1,3 +1,8 @@
+"""
+Uses stress classification as a heuristic to filter for words with
+pronunciations that actually significantly change meaning
+"""
+
 import json
 import re
 
@@ -29,7 +34,6 @@ def write_dict_to_jsonl(data_dict, output_path):
 
 
 if __name__ == "__main__":
-    # Load the initial homograph groups
     HOMOGRAPHS, _ = wikipron_tl_df(FILE_PATH)
 
     filtered_homographs = {}
@@ -50,7 +54,6 @@ if __name__ == "__main__":
             # Heuristic 1: Collapse i/e and u/o differences
             # normalized = fold_vowels(normalized)
 
-            # Extract structural stress class
             stress_class = classify_stress(normalized)
 
             if stress_class != "None":
