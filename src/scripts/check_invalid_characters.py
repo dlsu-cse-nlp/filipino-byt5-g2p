@@ -15,17 +15,57 @@ from src.utils.phoneme_inventory import PHONEME_INVENTORY
 from src.utils.phoneme_utils import write_csv
 
 
+def browse_rows_with_char(char, all_rows, fieldnames):
+    """Page through rows whose phoneme field contains `char`."""
+    matching = [
+        row for row in all_rows if char in normalize_characters(row.get("phoneme", ""))
+    ]
+    if not matching:
+        print("  No matching rows found.")
+        return
+
+    PAGE = 10
+    total = len(matching)
+    offset = 0
+    sentence_key = next(
+        (k for k in ("sentence", "text", "utterance") if k in fieldnames), None
+    )
+
+    while offset < total:
+        page_rows = matching[offset : offset + PAGE]
+        print(f"\n  Showing {offset + 1}–{min(offset + PAGE, total)} of {total} rows:")
+        print(
+            f"  {'#':<6} {'phoneme':<40}" + (f" {sentence_key}" if sentence_key else "")
+        )
+        print(f"  {'-'*80}")
+        for i, row in enumerate(page_rows, start=offset + 1):
+            phoneme = row.get("phoneme", "")
+            display = phoneme[:38] + "…" if len(phoneme) > 38 else phoneme
+            line = f"  {i:<6} {display:<40}"
+            if sentence_key:
+                sent = row.get(sentence_key, "")
+                line += " " + (sent[:60] + "…" if len(sent) > 60 else sent)
+            print(line)
+
+        offset += PAGE
+        if offset < total:
+            cont = questionary.confirm("  Show next page?", default=True).ask()
+            if not cont:
+                break
+
+
 def audit_and_wipe_csv(filepath):
     allowed_chars = set(PHONEME_INVENTORY)
-
     all_rows = []
     all_invalid_chars = {}
     total_rows = 0
+    fieldnames = []
 
     try:
         with open(filepath, mode="r", encoding="utf-8") as infile:
             reader = csv.DictReader(infile)
-            if "phoneme" not in reader.fieldnames:
+            fieldnames = list(reader.fieldnames or [])
+            if "phoneme" not in fieldnames:
                 print(f"  Error: No 'phoneme' column found.")
                 return
             for row in reader:
@@ -59,7 +99,6 @@ def audit_and_wipe_csv(filepath):
     print(f"  Rows with invalid chars: {rows_with_any_invalid}")
     print(f"\n  {'Char':<8} {'Count':<8} {'Unicode':<12} Name")
     print(f"  {'-'*60}")
-
     for char, count in sorted(all_invalid_chars.items(), key=lambda x: -x[1]):
         unicode_hex = f"U+{ord(char):04X}"
         try:
@@ -68,39 +107,100 @@ def audit_and_wipe_csv(filepath):
             name = "UNKNOWN OR CONTROL CHARACTER"
         print(f"  {repr(char):<8} {count:<8} {unicode_hex:<12} {name}")
 
-    # Checkbox selection
+    # Per-character action selection
+    # actions: "delete" | "replace:<str>" | "skip"
+    char_actions = {}  # char -> ("delete" | "replace", replacement)
 
-    choices = [
-        questionary.Choice(
-            title=f"{repr(char)}  ({all_invalid_chars[char]}x)  U+{ord(char):04X}",
-            value=char,
-        )
-        for char, _ in sorted(all_invalid_chars.items(), key=lambda x: -x[1])
-    ]
-    selected = questionary.checkbox(
-        "Select characters whose rows should be deleted:",
-        choices=choices,
-    ).ask()
+    sorted_chars = sorted(all_invalid_chars.items(), key=lambda x: -x[1])
 
-    if not selected:
-        print("  Nothing selected — file unchanged.")
+    for char, count in sorted_chars:
+        unicode_hex = f"U+{ord(char):04X}"
+        print(f"\n  {repr(char)}  ({count}x)  {unicode_hex}")
+
+        action = questionary.select(
+            "  Action:",
+            choices=[
+                questionary.Choice("Skip (leave rows unchanged)", value="skip"),
+                questionary.Choice(
+                    "Browse rows containing this character", value="browse"
+                ),
+                questionary.Choice(
+                    "Replace all occurrences with another string", value="replace"
+                ),
+                questionary.Choice(
+                    "Delete all rows containing this character", value="delete"
+                ),
+            ],
+        ).ask()
+
+        if action == "browse":
+            browse_rows_with_char(char, all_rows, fieldnames)
+            # After browsing, ask again what to do
+            action = questionary.select(
+                "  Now what?",
+                choices=[
+                    questionary.Choice("Skip (leave rows unchanged)", value="skip"),
+                    questionary.Choice(
+                        "Replace all occurrences with another string", value="replace"
+                    ),
+                    questionary.Choice(
+                        "Delete all rows containing this character", value="delete"
+                    ),
+                ],
+            ).ask()
+
+        if action == "replace":
+            replacement = questionary.text(
+                f"  Replace {repr(char)} with (leave blank for empty string):",
+            ).ask()
+            if replacement is None:
+                replacement = ""
+            char_actions[char] = ("replace", replacement)
+        elif action == "delete":
+            char_actions[char] = ("delete", None)
+        # "skip" -> not added to char_actions
+
+    if not char_actions:
+        print("  No actions selected — file unchanged.")
         return
 
-    selected_set = set(selected)
+    # Apply actions
+    delete_chars = {c for c, (a, _) in char_actions.items() if a == "delete"}
+    replace_map = {c: r for c, (a, r) in char_actions.items() if a == "replace"}
+
     kept_rows = []
     rows_wiped = 0
+    rows_modified = 0
 
     for row in all_rows:
         phoneme_string = row.get("phoneme", "")
         normalized = normalize_characters(phoneme_string) if phoneme_string else ""
-        if any(c in selected_set for c in normalized):
+
+        if delete_chars and any(c in delete_chars for c in normalized):
             rows_wiped += 1
-        else:
-            kept_rows.append(row)
+            continue
+
+        if replace_map:
+            new_phoneme = normalized
+            changed = False
+            for bad_char, replacement in replace_map.items():
+                if bad_char in new_phoneme:
+                    new_phoneme = new_phoneme.replace(bad_char, replacement)
+                    changed = True
+            if changed:
+                row = dict(row)
+                row["phoneme"] = new_phoneme
+                rows_modified += 1
+
+        kept_rows.append(row)
 
     write_csv(kept_rows, filepath)
-    print(f"\n  Rows wiped:      {rows_wiped}")
-    print(f"  Rows kept:       {total_rows - rows_wiped}")
+
+    if rows_wiped:
+        print(f"\n  Rows deleted:    {rows_wiped}")
+    if rows_modified:
+        print(f"  Rows modified:   {rows_modified}")
+    print(f"  Rows kept:       {len(kept_rows)}")
 
 
 if __name__ == "__main__":
@@ -112,5 +212,4 @@ if __name__ == "__main__":
             audit_and_wipe_csv(path)
         else:
             print(f"  Skipping: file does not exist.")
-
     print()
