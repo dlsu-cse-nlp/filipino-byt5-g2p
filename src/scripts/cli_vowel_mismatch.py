@@ -372,35 +372,38 @@ def browse_mismatches(
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
+from src.utils.dataset_files import CSV_PATHS
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Browse and fix word-IPA pairs with mismatched vowel counts or ng/ŋ tail mismatches."
-    )
-    parser.add_argument("csv_file", help="Path to input CSV file")
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser(
+    #     description="Browse and fix word-IPA pairs with mismatched vowel counts or ng/ŋ tail mismatches."
+    # )
+    # parser.add_argument("csv_file", help="Path to input CSV file")
+    # args = parser.parse_args()
 
-    print(f"\n📂  Loading {args.csv_file} …")
-    rows = load_csv(args.csv_file)
-    print(f"    {len(rows)} rows loaded.")
+    for csv_file in CSV_PATHS:
+        print("-" * 80)
+        print(f"\n📂  Loading {csv_file} …")
+        rows = load_csv(csv_file)
+        print(f"    {len(rows)} rows loaded.")
 
-    print("    Building index …")
-    _, occurrence_map = build_index(rows)
+        print("    Building index …")
+        _, occurrence_map = build_index(rows)
 
-    print("    Scanning for mismatches …")
-    mismatches = find_mismatches(rows)
-    total_pairs = len(mismatches)
-    total_instances = sum(m["count"] for m in mismatches)
-    n_vowel = sum(1 for m in mismatches if m["vowel_mismatch"])
-    n_ng = sum(1 for m in mismatches if m["ng_mismatch"])
-    print(
-        f"    {total_pairs} unique mismatched pair(s) "
-        f"across {total_instances} total occurrence(s) "
-        f"({n_vowel} vowel-count, {n_ng} ng/ŋ tail).\n"
-    )
+        print("    Scanning for mismatches …")
+        mismatches = find_mismatches(rows)
+        total_pairs = len(mismatches)
+        total_instances = sum(m["count"] for m in mismatches)
+        n_vowel = sum(1 for m in mismatches if m["vowel_mismatch"])
+        n_ng = sum(1 for m in mismatches if m["ng_mismatch"])
+        print(
+            f"    {total_pairs} unique mismatched pair(s) "
+            f"across {total_instances} total occurrence(s) "
+            f"({n_vowel} vowel-count, {n_ng} ng/ŋ tail).\n"
+        )
 
-    browse_mismatches(mismatches, rows, occurrence_map, args.csv_file)
+        browse_mismatches(mismatches, rows, occurrence_map, csv_file)
     print("\nGoodbye! 👋\n")
 
 

@@ -118,7 +118,13 @@ def save_splits_for_csv(csv_path, tokenizer):
     for split_name, dataset in ds_dict.items():
         out_path = f"{base}_{split_name}.csv"
         dataset.select_columns(
-            ["index", "word", "pronunciation", "sentence", "phoneme"]
+            [
+                "index",
+                "word",
+                "pronunciation",
+                "sentence",
+                "phoneme",
+            ]
         ).to_csv(out_path, index=False)
         print(f"Wrote {len(dataset)} rows to {out_path}")
 
@@ -170,7 +176,7 @@ if __name__ == "__main__":
         # "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
         # "data/stress-minimal/stress-minimal_ambiguous_split.csv",
         # "data/stress-minimal/stress-minimal_single_split.csv",
-        # "data/wiktionary-scrape/transcribed/homographs_flattened_old.csv",
+        "data/wiktionary-scrape/transcribed/homographs_flattened.csv",
     ]
 
     tokenizer = AutoTokenizer.from_pretrained("charsiu/g2p_multilingual_byT5_small_100")

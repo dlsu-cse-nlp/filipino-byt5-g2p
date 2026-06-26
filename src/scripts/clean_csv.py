@@ -66,6 +66,7 @@ def process_csv(file_path):
 
     df["phoneme"] = df["phoneme"].astype(str).apply(normalize_characters)
 
+    """
     # 3. Drop rows whose phoneme field contains any out-of-inventory character
     inventory_set = set(PHONEME_INVENTORY)
 
@@ -79,18 +80,13 @@ def process_csv(file_path):
     print(
         f"{file_path}: dropped {before - after} / {before} rows with out-of-inventory characters"
     )
+    """
 
     # 4. Write back to the exact same path safely
     df.to_csv(file_path, index=False)
 
 
-csv_paths = [
-    "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
-    "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
-    "data/stress-minimal/stress-minimal_ambiguous_split.csv",
-    "data/stress-minimal/stress-minimal_single_split.csv",
-    "data/wiktionary-scrape/transcribed/homographs_flattened.csv",
-]
+from src.utils.dataset_files import CSV_PATHS
 
-for x in csv_paths:
+for x in CSV_PATHS:
     process_csv(x)  # Removed the redundant output_path=x
