@@ -5,13 +5,7 @@ from pathlib import Path
 import questionary
 
 # Define the available datasets for finetuning
-DATASETS = [
-    "tatoeba",
-    "newsph-nli",
-    "combined",
-    "stress",
-    "combined-stress",
-]
+DATASETS = ["tatoeba", "newsph-nli", "combined", "stress", "combined-stress", "all"]
 DEFAULT_CHECKPOINTS_PATH = "models/checkpoints"
 
 

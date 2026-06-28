@@ -65,7 +65,14 @@ elif args.dataset == "combined-stress":
         "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
         "data/stress-minimal/stress-minimal_ambiguous_split.csv",
         "data/stress-minimal/stress-minimal_single_split.csv",
-        "data/wiktionary-scrape/transcribed/homographs_final.csv",
+    ]
+elif args.dataset == "all":
+    dataset = [
+        "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
+        "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
+        "data/stress-minimal/stress-minimal_ambiguous_split.csv",
+        "data/stress-minimal/stress-minimal_single_split.csv",
+        "data/wiktionary-scrape/transcribed/homographs_flattened.csv",
     ]
 
 if args.include_word_level:
@@ -110,7 +117,9 @@ training_args = Seq2SeqTrainingArguments(
     # Use standard ByT5 learning rates...
     learning_rate=args.learning_rate,
     lr_scheduler_type="constant_with_warmup",
-    warmup_steps=100 if args.dataset == "tatoeba" else 300,
+    warmup_steps=(
+        100 if args.dataset == "tatoeba" else (600 if args.dataset == "all" else 300)
+    ),
     # --------------------------------------------
     num_train_epochs=10,  # TODO: Is 10 good?
     eval_strategy="epoch",
