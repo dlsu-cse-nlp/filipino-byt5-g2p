@@ -34,7 +34,7 @@ parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
 parser.add_argument(
     "--dataset",
     default="tatoeba",
-    choices=["tatoeba", "newsph-nli", "combined", "stress", "combined-stress"],
+    choices=["tatoeba", "newsph-nli", "combined", "stress", "combined-stress", "all"],
 )
 parser.add_argument("--description", default="sample_finetune")
 parser.add_argument("--resume-from", default=None)
