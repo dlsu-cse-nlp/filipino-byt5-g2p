@@ -188,7 +188,7 @@ ft = panphon.FeatureTable()
 dst = panphon.distance.Distance()
 
 # Get the test split
-if args.dataset == "validation":
+if args.dataset in ["validation", "tatoeba"]:
     test_set = split_dataset["validation"]
 else:
     test_set = split_dataset["test"]
