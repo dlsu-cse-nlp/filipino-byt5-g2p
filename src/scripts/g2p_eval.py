@@ -85,7 +85,7 @@ parser.add_argument("--checkpoint-path", default="")
 parser.add_argument(
     "--dataset",
     default="tatoeba",
-    choices=["tatoeba", "newsph-nli", "combined", "manual", "synthetic2"],
+    choices=["tatoeba", "newsph-nli", "combined", "manual", "synthetic2", "validation"],
 )
 parser.add_argument("--base-model", action="store_true")
 parser.add_argument("--epitran", action="store_true")
@@ -111,6 +111,14 @@ elif args.dataset == "synthetic2":
     split_dataset = dataset_from_csv_list(dataset, tokenizer)
 elif args.dataset == "manual":
     dataset = ["data/manual_set_1.csv", "data/manual_set_2.csv"]
+    split_dataset = dataset_from_csv_list(dataset, tokenizer)
+elif args.dataset == "validation":
+    dataset = [
+        "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
+        "data/stress-minimal/stress-minimal_ambiguous_split.csv",
+        "data/stress-minimal/stress-minimal_single_split.csv",
+        "data/wiktionary-scrape/transcribed/homographs_flattened.csv",
+    ]
     split_dataset = dataset_from_csv_list(dataset, tokenizer)
 
 # Use CUDA if available
@@ -180,7 +188,10 @@ ft = panphon.FeatureTable()
 dst = panphon.distance.Distance()
 
 # Get the test split
-test_set = split_dataset["test"]
+if args.dataset == "validation":
+    test_set = split_dataset["validation"]
+else:
+    test_set = split_dataset["test"]
 
 # Running sums
 total_per_dist = 0
