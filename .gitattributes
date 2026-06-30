@@ -8,3 +8,4 @@ results/output_2026-04-03_00-54_tatoeba_newsph_stress_word_checkpoint-8703_tatoe
 results/output_2026-04-03_00-54_tatoeba_newsph_stress_word_checkpoint-9670_manual.pkl filter=lfs diff=lfs merge=lfs -text
 results/output_2026-04-03_00-54_tatoeba_newsph_stress_word_checkpoint-9670_tatoeba.pkl filter=lfs diff=lfs merge=lfs -text
 results/output_2026-04-03_11-32_tatoeba_newsph_stress_checkpoint-4266_tatoeba.pkl filter=lfs diff=lfs merge=lfs -text
+*.pkl filter=lfs diff=lfs merge=lfs -text
