@@ -68,11 +68,19 @@ def preprocess_dataset(dataset):
 def dataset_from_csv(csv_path, tokenizer):
     # Derive the split paths from the base csv_path (e.g., path/to/x.csv -> path/to/x)
     base_path = csv_path.rsplit(".", 1)[0]
-    data_files = {
-        "train": f"{base_path}_train.csv",
-        "test": f"{base_path}_test.csv",
-        "validation": f"{base_path}_validation.csv",
-    }
+    if "manual" in csv_path:
+        data_files = {
+            "train": csv_path,
+            "test": csv_path,
+            "validation": csv_path,
+        }
+    else:
+        data_files = {
+            "train": f"{base_path}_train.csv",
+            "test": f"{base_path}_test.csv",
+            "validation": f"{base_path}_validation.csv",
+        }
+
     raw_datasets = load_dataset("csv", data_files=data_files)
 
     processed_splits = {}
