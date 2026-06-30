@@ -85,7 +85,7 @@ parser.add_argument("--checkpoint-path", default="")
 parser.add_argument(
     "--dataset",
     default="tatoeba",
-    choices=["tatoeba", "newsph-nli", "combined", "manual"],
+    choices=["tatoeba", "newsph-nli", "combined", "manual", "synthetic2"],
 )
 parser.add_argument("--base-model", action="store_true")
 parser.add_argument("--epitran", action="store_true")
@@ -104,17 +104,14 @@ elif args.dataset == "newsph-nli":
     dataset = ["data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv"]
     split_dataset = dataset_from_csv_list(dataset, tokenizer)
 elif args.dataset == "combined":
-    dataset = [
-        "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
-        "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
-    ]
+    dataset = ["data/wiktionary-scrape/transcribed/homographs_flattened.csv"]
+    split_dataset = dataset_from_csv_list(dataset, tokenizer)
+elif args.dataset == "synthetic2":
+    dataset = ["data/wiktionary-scrape/transcribed/homographs_flattened.csv"]
     split_dataset = dataset_from_csv_list(dataset, tokenizer)
 elif args.dataset == "manual":
-    dataset = "data/manual_set.csv"
-
-    # TODO: Dumb hack but whatever lol
-    split_dataset = dataset_from_csv(dataset, tokenizer)
-    # split_dataset["test"] = concatenate_datasets(list(split_dataset.values()))
+    dataset = ["data/manual_set_1.csv", "data/manual_set_2.csv"]
+    split_dataset = dataset_from_csv_list(dataset, tokenizer)
 
 # Use CUDA if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -312,12 +309,12 @@ with torch.no_grad():
                 span_end = span_start + len(word_ids)
                 search_start = span_end  # don't re-match the same occurrence
 
-                print("-" * 40)
-                print(f"Word: {ortho_word}")
-                print("Tokenized:")
-                print(word_ids)
-                print("Aligned with:")
-                print(full_ids[span_start:span_end])
+                # print("-" * 40)
+                # print(f"Word: {ortho_word}")
+                # print("Tokenized:")
+                # print(word_ids)
+                # print("Aligned with:")
+                # print(full_ids[span_start:span_end])
 
                 word_vec = hidden_states[span_start:span_end].mean(dim=0).cpu().numpy()
                 word_embeddings.append(word_vec)
