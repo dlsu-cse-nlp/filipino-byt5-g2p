@@ -1,3 +1,5 @@
+# TODO: This is an old script.
+
 """
 This script parses the .jsonl output of the scripts/query_gemini_tatoeba.py to
 produce a cleaner CSV file for use in training
@@ -14,6 +16,7 @@ from tqdm import tqdm
 from datasets import load_dataset
 from src.utils.homographs import fill_template, homographs
 from src.utils.normalize_characters import normalize_characters
+from src.utils.phoneme_inventory import PHONEME_INVENTORY
 
 # TODO: Use argparse
 
@@ -23,47 +26,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dataset-path", type=str, default=DEFAULT_DATASET_PATH)
 parser.add_argument("--output", type=str, default="output_from_jsonl.csv")
 args = parser.parse_args()
-
-PHONEME_INVENTORY = [
-    "'",
-    "a",
-    "b",
-    "d",
-    "e",
-    "f",
-    "h",
-    "i",
-    "j",
-    "k",
-    "l",
-    "m",
-    "n",
-    "o",
-    "p",
-    "s",
-    "t",
-    "u",
-    "v",
-    "w",
-    "y",
-    "z",
-    "ŋ",
-    "ɕ",
-    "ə",
-    "ɡ",
-    "ɹ",
-    "ɾ",
-    "ʃ",
-    "ʌ",
-    "ʒ",
-    "ʔ",
-    # "ˈ",
-    "ˌ",
-    # We allow both normal and joined tie bars
-    "\u0361",
-    " ‍͡ ",
-    " ",
-]
 
 
 def validate_characters(answers):

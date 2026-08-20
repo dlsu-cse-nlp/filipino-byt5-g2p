@@ -1,44 +1,7 @@
 import pandas as pd
 
 from src.scripts.read_jsonl import normalize_characters
-
-PHONEME_INVENTORY = [
-    " ",
-    "'",
-    "a",
-    "b",
-    "d",
-    "e",
-    "f",
-    "h",
-    "i",
-    "j",
-    "k",
-    "l",
-    "m",
-    "n",
-    "o",
-    "p",
-    "s",
-    "t",
-    "u",
-    "v",
-    "w",
-    "z",
-    "ŋ",
-    # "ɕ",
-    # "ə",
-    "ɡ",
-    "ɹ",
-    "ɾ",
-    "ʃ",
-    "ʌ",
-    "ʒ",
-    "ʔ",
-    "ˈ",
-    "ˌ",
-    "\u0361",
-]
+from src.utils.phoneme_inventory import PHONEME_INVENTORY
 
 
 def process_csv(file_path):

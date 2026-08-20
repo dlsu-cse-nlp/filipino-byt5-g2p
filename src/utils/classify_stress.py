@@ -164,6 +164,4 @@ def run_evaluation(pkl_path: str):
         print()
 
 
-# run_evaluation(
-#     "results/output_2026-04-03_00-54_tatoeba_newsph_stress_word_checkpoint-9670_manual.pkl"
-# )
+run_evaluation("results/output_2026-06-28_23-12_nlpir-all_checkpoint-14500_manual.pkl")

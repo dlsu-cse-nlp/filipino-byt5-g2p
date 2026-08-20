@@ -1,44 +1,6 @@
 from string import Template
 
-# This list was obtained from WikiPron's scraped data.
-PHONEME_INVENTORY = [
-    "'",
-    "a",
-    "b",
-    "d",
-    "e",
-    "f",
-    "h",
-    "i",
-    "j",
-    "k",
-    "l",
-    "m",
-    "n",
-    "o",
-    "p",
-    "s",
-    "t",
-    "u",
-    "v",
-    "w",
-    "y",
-    "z",
-    "ŋ",
-    "ɕ",
-    "ə",
-    "ɡ",
-    "ɹ",  # NOTE: Only used by one word
-    "ɾ",
-    "ʃ",
-    "ʌ",
-    "ʒ",
-    "ʔ",
-    "ˈ",  # NOTE: Technically a "duplicate"
-    "ˌ",
-    # NOTE: We handle the tie bar with a special instruction
-    " ‍͡ (Tie bar: Unicode: U+0361)",
-]
+from src.utils.phoneme_inventory import PHONEME_INVENTORY
 
 # TODO: This is the current working prompt template...
 TEMPLATE_STR = f"""<sentence>
@@ -86,8 +48,6 @@ TEMPLATE = Template(TEMPLATE_STR)
 
 import json
 from string import Template
-
-# ... (PHONEME_INVENTORY, TEMPLATE_STR, TEMPLATE unchanged – keep them as they are) ...
 
 
 def _format_word_data(data, definitions_map=None):

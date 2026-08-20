@@ -1,70 +1,98 @@
 """
 This script concurrently sends "generate a sentence for each possible
-pronunciation" requests to the Gemini API via Vertex AI.
+pronunciation" requests to the Gemini API via Vertex AI (new version).
 """
 
-# WARNING: This currently uses the old configuration with Vertex AI
+# INFO: Updated as of 22 June 2026
+# Uses the new Agent Platform
 
 import asyncio
+import json
 from typing import List
 
-from dotenv import dotenv_values
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
 from tqdm.asyncio import tqdm
 
-from src.datasets.wikipron_tl_df import wikipron_tl_df
-from src.utils.generate_prompt.synthesize import generate_prompt
 from src.utils.process_prompt import process_prompt
 
-# Read from .env
-config = dotenv_values(".env")
-FILE_PATH = config["WIKIPRON_PATH"]
-VERTEX_KEY = config["VERTEX_API_KEY"]
-
-HOMOGRAPHS, _ = wikipron_tl_df(FILE_PATH)
+PROJECT_ID = "basic-formula-489010-n5"
+LOCATION = "global"
 CONCURRENCY_LIMIT = 25
-OUTPUT_FILENAME = "results_gemini_2.5.jsonl"
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-3.5-flash"
+
+INPUT_JSONL = "data/wiktionary-scrape/ambiguous_prons_cleaned.jsonl"
+OUTPUT_FILENAME = "data/wiktionary-scrape/generated/results_gemini_3.5.jsonl"
 
 
-# TODO: Move these into a separate class
-class Sentence(BaseModel):
-    pronunciation: int
-    sentence: str
+class DefinitionSentences(BaseModel):
+    definition: str
+    sentences: List[str]
+
+
+class PronunciationGroup(BaseModel):
+    pronunciation: str
+    definitions: List[DefinitionSentences]
 
 
 class Response(BaseModel):
     """JSON schema for Gemini API's structured output"""
 
     word: str
-    answers: List[Sentence]
+    results: List[PronunciationGroup]
+
+
+def load_word_data(jsonl_path: str) -> List[dict]:
+    """Read each line as a JSON object containing 'word' and 'matches'."""
+    data = []
+    with open(jsonl_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                data.append(json.loads(line))
+    return data
+
+
+def generate_prompt(word_data: dict) -> str:
+    """
+    Build the prompt using the fixed instructions and the word data as JSON.
+    """
+    instructions = """
+<instructions>
+Generate 20 Filipino sentences each for each pronunciation variation of the word below. Divide it evenly among all definitions. Respond only with the sentences according to the requested JSON schema. Do not inflect or conjugate the word; use it exactly as it appears. Generate fairly simple sentences and be as unambiguous with the definitions as possible, but there should be variety in structure. If multiple possible pronunciations are valid for a definition, take only the first.
+</instructions>
+"""
+    data_json = json.dumps(word_data, ensure_ascii=False)
+    return f"{instructions}\n<data>\n{data_json}\n</data>"
 
 
 async def main():
-    # Set up Gemini API for Vertex AI
-    client = genai.Client(api_key=VERTEX_KEY, vertexai=True)
+    # Set up Gemini client via Vertex AI (uses ADC for auth)
+    client = genai.Client(
+        vertexai=True,
+        project=PROJECT_ID,
+        location=LOCATION,
+    )
 
-    prompts = [generate_prompt(word) for word in HOMOGRAPHS.keys()]
+    # Load all word entries from the JSONL file
+    word_entries = load_word_data(INPUT_JSONL)
+    prompts = [generate_prompt(entry) for entry in word_entries]
 
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
     file_lock = asyncio.Lock()
 
-    # Delete existing file if it exists...
+    # Clear output file
     open(OUTPUT_FILENAME, "w").close()
 
     gen_config = types.GenerateContentConfig(
         response_mime_type="application/json",
         response_json_schema=Response.model_json_schema(),
-        thinking_config=types.ThinkingConfig(
-            include_thoughts=False,  # Keeps the 'thought' process out of the response
-            thinking_budget=0,  # 0 strictly disables the reasoning stepthinking_level="MINIMAL"),
-        ),
+        thinking_config=types.ThinkingConfig(thinking_level="LOW"),
     )
 
-    # Set concurrency limits
     print(f"Concurrency limit: {CONCURRENCY_LIMIT}")
+    print(f"Processing {len(prompts)} words...")
 
     tasks = [
         asyncio.create_task(
@@ -82,8 +110,8 @@ async def main():
         for i, prompt in enumerate(prompts, start=1)
     ]
 
-    # Process all tasks while showing an async progress bar
-    results = [await t for t in tqdm.as_completed(tasks, total=len(tasks))]
+    # Wait for all tasks with a progress bar
+    await tqdm.gather(*tasks, desc="Generating sentences")
 
     print("=" * 40)
     print(f"Saved results to {OUTPUT_FILENAME}.")

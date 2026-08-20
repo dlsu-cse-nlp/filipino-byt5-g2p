@@ -8,9 +8,6 @@ def wikipron_tl_df(wikipron_path):
     raw_df = pd.read_csv(wikipron_path, sep="\t", header=None, names=["word", "pron"])
     raw_df = raw_df.drop_duplicates(keep="first").reset_index(drop=True)
 
-    # TODO: Not sure if this breaks anything probably not
-    raw_df["pron"] = raw_df["pron"].apply(normalize_characters)
-
     # Identify all indices where spelling is identical
     homograph_mask = raw_df["word"].duplicated(keep=False)
 
@@ -54,9 +51,13 @@ def wikipron_tl_df(wikipron_path):
     return homographs, non_homographs
 
 
+# Print the character inventory if ran as a script
 if __name__ == "__main__":
     file_path = "data/wikipron/wikipron_tl.tsv"
     homo_dict, non_homo_dict = wikipron_tl_df(file_path)
+
+    print(len(homo_dict))
+    print(len(non_homo_dict))
 
     all_pronunciations = list(non_homo_dict.values())
 
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     phoneme_inventory = sorted(list(phoneme_set))
 
     print("=" * 40)
-    print("Phoneme Character Inventory:")
+    print("Phoneme character inventory:")
     print("=" * 40)
     print(f"Total unique characters: {len(phoneme_inventory)}")
     print(phoneme_inventory)

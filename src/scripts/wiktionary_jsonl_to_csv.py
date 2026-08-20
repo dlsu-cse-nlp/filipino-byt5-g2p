@@ -5,12 +5,10 @@ import json
 
 
 def convert_clean_and_flatten_data(input_file, output_csv_file, output_jsonl_file):
-    # A set to keep track of the (word, original_sentence) pairs we've already seen
     seen_pairs = set()
     cleaned_rows_count = 0
     total_rows = 0
 
-    # Define the column headers based on your JSON structure
     fieldnames = [
         "index",
         "word",
@@ -21,21 +19,18 @@ def convert_clean_and_flatten_data(input_file, output_csv_file, output_jsonl_fil
         "answers",
     ]
 
-    print("--- Processing Data & Locating Newlines ---")
-
     with (
         open(input_file, "r", encoding="utf-8") as infile,
         open(output_csv_file, "w", encoding="utf-8", newline="") as csv_outfile,
         open(output_jsonl_file, "w", encoding="utf-8") as jsonl_outfile,
     ):
-        # Initialize the CSV DictWriter
         writer = csv.DictWriter(csv_outfile, fieldnames=fieldnames)
         writer.writeheader()
 
         for line_index, line in enumerate(infile, start=1):
             line = line.strip()
             if not line:
-                continue  # Skip empty lines
+                continue
 
             try:
                 row = json.loads(line)
@@ -45,18 +40,15 @@ def convert_clean_and_flatten_data(input_file, output_csv_file, output_jsonl_fil
 
             total_rows += 1
 
-            # Extract the composite key for deduplication
             word = row.get("word")
             original_sentence = row.get("original_sentence")
 
             pair = (word, original_sentence)
 
-            # If the pair hasn't been seen yet, process and save it
             if pair not in seen_pairs:
                 seen_pairs.add(pair)
                 has_newline = False
 
-                # Scan and clean all embedded newlines/carriage returns across all columns
                 for key, value in row.items():
                     if isinstance(value, str):
                         if "\n" in value or "\r" in value:
@@ -95,12 +87,8 @@ def convert_clean_and_flatten_data(input_file, output_csv_file, output_jsonl_fil
 
                 writer.writerow(csv_row)
 
-    print("\n--- Summary ---")
-    print(f"Total raw lines evaluated: {total_rows}")
-    print(f"Total unique records saved: {len(seen_pairs)}")
-    print(f"Rows that contained internal newlines and were fixed: {cleaned_rows_count}")
-    print(f" - Perfectly aligned CSV saved to: '{output_csv_file}'")
-    print(f" - Cleaned JSONL saved to: '{output_jsonl_file}'")
+    print(f"Raw lines: {total_rows}")
+    print(f"Unique records: {len(seen_pairs)}")
 
 
 if __name__ == "__main__":
