@@ -3,6 +3,7 @@
 <h1>ByT5-Based Stress-Aware Sentence-Level Filipino G2P</h1>
 
 [![HuggingFace Model](https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-md-dark.svg)](https://huggingface.co/lowestofthelow/filipino-byt5-g2p)
+[![arXiv](https://img.shields.io/badge/arXiv-2609.09974-b31b1b.svg)](https://arxiv.org/abs/2609.09974)
 
 </div>
 
@@ -13,6 +14,7 @@ This repository is for a sentence-level Filipino G2P project using a ByT5-based 
 
 ## News
 
+- `[2026-09-09]` Paper uploaded to [arXiv](https://arxiv.org/abs/2609.09974).
 - `[2026-08-07]` Paper accepted to [NLPIR 2026](https://www.nlpir.net/index.html).
 
 ## Project structure
