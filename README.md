@@ -9,9 +9,6 @@
 
 This repository is for a sentence-level Filipino G2P project using a ByT5-based model, pre-trained on multilingual word-level G2P data (See [lingjzhu/charsiug2p](https://github.com/lingjzhu/charsiug2p)) and on three sentence-level G2P datasets annotated with an LLM-assisted pipeline guided by Wiktionary data.
 
-> [!WARNING]
-> For more information, an arXiv link to the camera-ready manuscript will be included here in the near future.
-
 ## News
 
 - `[2026-09-09]` Paper uploaded to [arXiv](https://arxiv.org/abs/2609.09974).
