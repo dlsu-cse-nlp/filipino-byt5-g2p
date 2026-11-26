@@ -3,8 +3,6 @@ This script evaluates a model checkpoint on a given test set by calculating PER
 and PFER.
 """
 
-# TODO: This needs work.
-
 import argparse
 import os
 import re
@@ -85,7 +83,7 @@ parser.add_argument("--checkpoint-path", default="")
 parser.add_argument(
     "--dataset",
     default="tatoeba",
-    choices=["tatoeba", "newsph-nli", "combined", "manual"],
+    choices=["tatoeba", "newsph-nli", "combined", "manual", "synthetic2", "validation"],
 )
 parser.add_argument("--base-model", action="store_true")
 parser.add_argument("--epitran", action="store_true")
@@ -104,17 +102,22 @@ elif args.dataset == "newsph-nli":
     dataset = ["data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv"]
     split_dataset = dataset_from_csv_list(dataset, tokenizer)
 elif args.dataset == "combined":
-    dataset = [
-        "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
-        "data/newsph-nli/phonetic_newsph-nli_gemini_2.5_lite.csv",
-    ]
+    dataset = ["data/wiktionary-scrape/transcribed/homographs_flattened.csv"]
+    split_dataset = dataset_from_csv_list(dataset, tokenizer)
+elif args.dataset == "synthetic2":
+    dataset = ["data/wiktionary-scrape/transcribed/homographs_flattened.csv"]
     split_dataset = dataset_from_csv_list(dataset, tokenizer)
 elif args.dataset == "manual":
-    dataset = "data/manual_set.csv"
-
-    # TODO: Dumb hack but whatever lol
-    split_dataset = dataset_from_csv(dataset, tokenizer)
-    split_dataset["test"] = concatenate_datasets(list(split_dataset.values()))
+    dataset = ["data/manual_set_1.csv", "data/manual_set_2.csv"]
+    split_dataset = dataset_from_csv_list(dataset, tokenizer)
+elif args.dataset == "validation":
+    dataset = [
+        "data/tatoeba/phonetic_tatoeba_gemini_3.csv",
+        "data/stress-minimal/stress-minimal_ambiguous_split.csv",
+        "data/stress-minimal/stress-minimal_single_split.csv",
+        "data/wiktionary-scrape/transcribed/homographs_flattened.csv",
+    ]
+    split_dataset = dataset_from_csv_list(dataset, tokenizer)
 
 # Use CUDA if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -183,7 +186,10 @@ ft = panphon.FeatureTable()
 dst = panphon.distance.Distance()
 
 # Get the test split
-test_set = split_dataset["test"]
+if args.dataset in ["validation", "tatoeba"]:
+    test_set = split_dataset["validation"]
+else:
+    test_set = split_dataset["test"]
 
 # Running sums
 total_per_dist = 0
@@ -194,8 +200,8 @@ total_chars = 0
 
 output = []
 
-word_embeddings = []  # mean-pooled encoder vector per word (UMAP)
-word_labels = []  # stress class per word (UMAP)
+word_embeddings = []  # Mean-pooled encoder vector per word
+word_labels = []  # Stress class per word
 
 print(f"Evaluating {len(test_set)} samples from {dataset}")
 
@@ -240,8 +246,8 @@ with torch.no_grad():
 
         pred_segs = ft.ipa_segs(pred_text)
 
-        # print("-" * 80)
-        # print(f"Target:  {target_text}\nPredict: {pred_text}")
+        print("-" * 80)
+        print(f"Target:  {target_text}\nPredict: {pred_text}")
 
         # Calculate PER distance (does not include normalization yet)
         per_dist = dst.levenshtein_distance(pred_segs, target_segs)
@@ -264,8 +270,8 @@ with torch.no_grad():
         total_phonemes += len(target_segs)
         total_chars += len(target_text)
 
-        # running_per = total_per_dist / total_phonemes if total_phonemes > 0 else 0
-        # print(f"Running PER: {running_per}")
+        running_per = total_per_dist / total_phonemes if total_phonemes > 0 else 0
+        print(f"Running PER: {running_per}")
 
         # For sample-level PER/CER/PFER, normalize by sample lengths
         output.append(
@@ -312,12 +318,12 @@ with torch.no_grad():
                 span_end = span_start + len(word_ids)
                 search_start = span_end  # don't re-match the same occurrence
 
-                print("-" * 40)
-                print(f"Word: {ortho_word}")
-                print("Tokenized:")
-                print(word_ids)
-                print("Aligned with:")
-                print(full_ids[span_start:span_end])
+                # print("-" * 40)
+                # print(f"Word: {ortho_word}")
+                # print("Tokenized:")
+                # print(word_ids)
+                # print("Aligned with:")
+                # print(full_ids[span_start:span_end])
 
                 word_vec = hidden_states[span_start:span_end].mean(dim=0).cpu().numpy()
                 word_embeddings.append(word_vec)
@@ -428,8 +434,6 @@ if args.umap and word_embeddings:
     fig.savefig(plot_path, dpi=150, bbox_inches="tight")
     print(f"UMAP plot saved to {plot_path}")
 
-    # ------------------------------------------
-
     # Create a DataFrame for easy plotting
     plot_df = pd.DataFrame(
         {"UMAP-1": X_2d[:, 0], "UMAP-2": X_2d[:, 1], "Stress class": word_labels}
@@ -447,7 +451,7 @@ if args.umap and word_embeddings:
         render_mode="webgl",  # Faster rendering for many points
     )
 
-    # Save as interactive HTML instead of static PNG
+    # Save as interactive HTML
     plot_path = f"results/pruned_umap_{Path(args.checkpoint_path).parts[-2]}_{Path(args.checkpoint_path).parts[-1]}_{args.dataset}.png"
     html_path = plot_path.replace(".png", ".html")
     fig.write_html(html_path)
