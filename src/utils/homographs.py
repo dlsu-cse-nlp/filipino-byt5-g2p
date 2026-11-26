@@ -27,15 +27,22 @@ def safe_get_stem(word):
         return word
 
 
-def homographs(sentence):
+def homographs(sentence, target_word=None, target_pron=None):
     # Breaks down the sentence string into a list of words
     words = [word.lower().translate(TRANSLATOR).strip() for word in sentence.split()]
 
     # Identifies words with more than one pronunciation
-    ambiguous_words = [word for word in words if word not in NON_HOMOGRAPHS_SET]
+    ambiguous_words = [
+        word
+        for word in words
+        if (word not in NON_HOMOGRAPHS_SET and word != target_word)
+    ]
 
     # Get a list of all words in the sentence with homograhs replaced by "_"
-    output_template = [NON_HOMOGRAPHS.get(word, "_") for word in words]
+    output_template = [
+        (NON_HOMOGRAPHS.get(word, "_") if word != target_word else target_pron)
+        for word in words
+    ]
 
     try:
         # Get a list of the pronunciations of all homographs in the sentence

@@ -1,3 +1,5 @@
+# TODO: This is an old script.
+
 """
 This script parses the .jsonl output of the scripts/query_gemini_tatoeba.py to
 produce a cleaner CSV file for use in training
@@ -13,6 +15,8 @@ from tqdm import tqdm
 
 from datasets import load_dataset
 from src.utils.homographs import fill_template, homographs
+from src.utils.normalize_characters import normalize_characters
+from src.utils.phoneme_inventory import PHONEME_INVENTORY
 
 # TODO: Use argparse
 
@@ -22,92 +26,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dataset-path", type=str, default=DEFAULT_DATASET_PATH)
 parser.add_argument("--output", type=str, default="output_from_jsonl.csv")
 args = parser.parse_args()
-
-PHONEME_INVENTORY = [
-    "'",
-    "a",
-    "b",
-    "d",
-    "e",
-    "f",
-    "h",
-    "i",
-    "j",
-    "k",
-    "l",
-    "m",
-    "n",
-    "o",
-    "p",
-    "s",
-    "t",
-    "u",
-    "v",
-    "w",
-    "y",
-    "z",
-    "ŋ",
-    "ɕ",
-    "ə",
-    "ɡ",
-    "ɹ",
-    "ɾ",
-    "ʃ",
-    "ʌ",
-    "ʒ",
-    "ʔ",
-    # "ˈ",
-    "ˌ",
-    # We allow both normal and joined tie bars
-    "\u0361",
-    " ‍͡ ",
-    " ",
-]
-
-
-def normalize_characters(text):
-    """Normalizes the characters in a string to the phoneme inventory above"""
-
-    if not text:
-        return ""
-
-    # TODO: Can look into the following mappings:
-    # "ɛ": "e", "ɪ": "i", "ʊ": "u", "ɔ": "o", "ɑ": "a",
-    replacements = {
-        "g": "ɡ",
-        "r": "ɾ",
-        "ɹ": "ɾ",
-        ",": "",
-        "ˌ": "",
-        "Ɂ": "ʔ",
-        ".": "",
-        "ˈ": "'",
-        "‍": "",  # Zero-width joiner that Gemini hallucinates sometimes
-        # For Gemini 2.5-Flash-Lite output
-        "ɛ": "e",
-        "ɪ": "i",
-        "ʊ": "u",
-        "ɔ": "o",
-        "ɑ": "a",
-        "æ": "a",
-        ":": "",
-        "꞉": "",
-        "ː": "",
-        "\u200b": "",  # Zero-width space
-        "ɐ": "a",
-        "á": "a",
-        "ʌ": "a",
-        "ɭ": "l",
-        "ʤ": "dʒ",
-        "ɕ": "ʃ",
-    }
-
-    text = text.replace(".", "")  # Remove syllable markers
-
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-
-    return re.sub(r"\s+", " ", text).strip()
 
 
 def validate_characters(answers):
