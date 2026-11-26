@@ -3,7 +3,7 @@ import sys
 
 import questionary
 
-DATASETS = ["tatoeba", "newsph-nli", "combined", "multitask"]
+DATASETS = ["tatoeba", "newsph-nli", "combined", "manual", "synthetic2", "validation"]
 
 
 def run_epitran_cli():
