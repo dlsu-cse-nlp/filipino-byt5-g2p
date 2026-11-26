@@ -6,7 +6,7 @@ import questionary
 
 DEFAULT_CHECKPOINTS_PATH = "models/checkpoints"
 
-DATASETS = ["tatoeba", "newsph-nli", "combined"]
+DATASETS = ["tatoeba", "newsph-nli", "combined", "manual", "synthetic2", "validation"]
 
 
 def get_checkpoints(base_dir=DEFAULT_CHECKPOINTS_PATH):
@@ -25,6 +25,8 @@ def get_checkpoints(base_dir=DEFAULT_CHECKPOINTS_PATH):
 
 # List all available checkpoints
 checkpoints = get_checkpoints()
+checkpoints = ["BASE MODEL (Charsiu byT5)", "Epitran"] + checkpoints
+
 if not checkpoints:
     print("No checkpoints found.")
     sys.exit(1)
@@ -47,6 +49,10 @@ if not selected_dataset:
     print("Cancelled by user.")
     sys.exit(0)
 
+umap = False
+if questionary.confirm("Get UMAP plot?", default=False).ask():
+    umap = True
+
 # NOTE: We run the Python script with uv!
 cmd = [
     "uv",
@@ -59,6 +65,16 @@ cmd = [
     "--dataset",
     selected_dataset,
 ]
+
+if selected_checkpoint == "BASE MODEL (Charsiu byT5)":
+    cmd.append("--base-model")
+elif selected_checkpoint == "Epitran":
+    cmd.append("--epitran")
+else:
+    cmd.extend(["--checkpoint-path", selected_checkpoint])
+
+if umap:
+    cmd.append("--umap")
 
 print(f"\nRunning command: {' '.join(cmd)}\n")
 

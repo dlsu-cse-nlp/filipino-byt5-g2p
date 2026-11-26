@@ -5,17 +5,21 @@ from typing import List
 from pydantic import BaseModel, ValidationError
 
 
-# TODO: Move these into a separate class
-class Sentence(BaseModel):
-    pronunciation: int
-    sentence: str
+class DefinitionSentences(BaseModel):
+    definition: str
+    sentences: List[str]
+
+
+class PronunciationGroup(BaseModel):
+    pronunciation: str
+    definitions: List[DefinitionSentences]
 
 
 class Response(BaseModel):
     """JSON schema for Gemini API's structured output"""
 
-    # word: str
-    answers: List[str]
+    word: str
+    results: List[PronunciationGroup]
 
 
 async def process_prompt(

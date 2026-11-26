@@ -1,11 +1,13 @@
 """
 This script is used to test the Gemini API with a single "fill in the
-pronunciation" request.
+pronunciation" request, reading the input from fun.csv.
 """
 
+import csv
+import json
 from typing import List
 
-from dotenv import dotenv_values
+from dotenv import dotenv_values  # still needed for other env vars if any
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -21,40 +23,57 @@ class Response(BaseModel):
     answers: List[str]
 
 
-# Set up Gemini API
-config = dotenv_values(".env")
-VERTEX_KEY = config["VERTEX_API_KEY"]
-client = genai.Client(api_key=VERTEX_KEY, vertexai=True)
+# Set up Gemini API – using a service account (no API key)
+config = dotenv_values(".env")  # keep if you have other env variables
+PROJECT_ID = "basic-formula-489010-n5"
+LOCATION = "global"  # global endpoint for Flash models
+
+client = genai.Client(
+    vertexai=True,
+    project=PROJECT_ID,
+    location=LOCATION,
+    # No api_key – authentication via GOOGLE_APPLICATION_CREDENTIALS
+)
 
 gen_config = types.GenerateContentConfig(
     response_mime_type="application/json",
     response_json_schema=Response.model_json_schema(),
     thinking_config=types.ThinkingConfig(thinking_level="LOW"),
-    # thinking_config=types.ThinkingConfig(
-    #    include_thoughts=False,  # Keeps the 'thought' process out of the response
-    #    thinking_budget=1024,  # 0 strictly disables the reasoning stepthinking_level="MINIMAL"),
-    # ),
 )
 
 
-# TODO: This is a sample sentence
-SENTENCE = "Bukas pa ang tindahan. Huwag mong iwanang bukas ang pinto. Bukas ang kanyang isip sa mga bagong ideya. Naiwanan kong bukas ang ilaw sa kusina. Bukas na ako pupunta sa Maynila. Magkita tayo bukas ng hapon. Darating ang aming bisita bukas. Tapusin natin ang proyekto bukas."
+def load_definitions(path="finalfinalfinal.jsonl"):
+    defs = {}
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            entry = json.loads(line.strip())
+            word = entry["word"]
+            defs[word] = entry["matches"]
+    return defs
 
-"Ang baka ay malaking hayop. Ang baka ay nagbibigay ng gatas. Gusto ng baka ang sariwang damo. Ang baka ay inaalagaan sa bukid. Baka umulan mamaya kaya magdala ka ng payong. Baka nakalimutan niyang tawagan ako. Hindi ako sigurado, baka tama ka. Baka nga hindi siya makapunta bukas."
 
-"Ngawit na ang kanyang lalamunan. Masakit ang ngawit."
+# Read the first entry from fun.csv
+with open("fun.csv", newline="", encoding="utf-8") as csvfile:
+    reader = csv.DictReader(csvfile)
+    # Take the first row only
+    for row in reader:
+        word = row["word"]
+        pronunciation = row["pronunciation"]
+        sentence = row["sentence"]
+        break
 
-"Mani na ba sa iyo ang kumain ng gulay?"
+# Extract homograph information given the sentence and the target word & pronunciation
+ambiguous_words, choices, output_template = homographs(sentence, word, pronunciation)
 
-"Hindi ko ugali ang mamulitika; mas gusto kong tahimik na magtrabaho. Pero sasabihin ko ito ngayon: ang tapang, lakas, at diskarte, hindi nadadaan sa mapanirang salita. Ang kailangan ng taumbayan ay tapang sa gawa, ayon kay Robredo sa inilabas nitong statement."
+print(ambiguous_words)
+print(output_template)
 
-# "Ang sikolohiya ay mahalaga sa edukasyon dahil ito'y nag-aaral ng mga proseso ng pag-aaral at pag-unlad ng isip at damdamin ng mga mag-aaral. Ito'y nagbibigay linaw sa mga guro kung paano turuan ang mga mag-aaral nang mas epektibo batay sa kanilang pangangailangan"
-
-# Extract homograph information given the sentence
-ambiguous_words, choices, output_template = homographs(SENTENCE)
-
+definitions_map = load_definitions()
 prompt = generate_prompt(
-    sentence=SENTENCE, pronunciations=choices, words=ambiguous_words
+    sentence=sentence,
+    pronunciations=choices,
+    words=ambiguous_words,
+    definitions_map=definitions_map,
 )
 
 print("=" * 40)
@@ -63,8 +82,11 @@ print("-" * 40)
 print(prompt)
 print("=" * 40)
 
+# Use the latest global Flash model
 response = client.models.generate_content(
-    model="gemini-3-flash-preview", contents=prompt, config=gen_config
+    model="gemini-3.5-flash",  # global, fast, supports structured output
+    contents=prompt,
+    config=gen_config,
 )
 
 output = Response.model_validate_json(response.text)
